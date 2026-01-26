@@ -23,7 +23,7 @@ const loading = ref(false);
 const lastRoomId = ref(localStorage.getItem("echo_music_last_room_id") || "");
 
 const createForm = reactive({
-  name: "一起听歌",
+  name: "非七人组 Music",
   displayName: localStorage.getItem("echo_username") || "Host",
 });
 
@@ -118,9 +118,9 @@ async function onResume() {
           </div>
         </div>
         <h1 class="text-4xl font-bold tracking-tight text-white drop-shadow-sm">
-          Echo Music
+          非七人组 Music
         </h1>
-        <p class="mt-2 text-slate-300">与好友实时同步的音乐空间</p>
+        <p class="mt-2 text-slate-300">与挚友实时同步的音乐空间</p>
       </div>
 
       <!-- Action Cards (Transition) -->
@@ -282,7 +282,7 @@ async function onResume() {
     </div>
 
     <div class="absolute bottom-6 text-xs text-white/20">
-      Echo Music · v0.1.0
+      非七人组 Music · v0.1.0
     </div>
   </div>
 </template>

@@ -82,7 +82,7 @@ async function addSong(song: Song) {
       <div class="flex items-center justify-between">
         <div>
           <h3 class="font-semibold text-white">点歌台</h3>
-          <p class="text-xs text-slate-400">支持网易云 / QQ音乐</p>
+          <p class="text-xs text-slate-400">支持网易云</p>
         </div>
         <div class="rounded bg-white/5 px-2 py-1 text-[10px] text-slate-400">
           Enter 搜索

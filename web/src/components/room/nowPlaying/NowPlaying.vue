@@ -43,10 +43,18 @@ const isMuted = ref(false);
 const prevVolume = ref(1);
 
 // Lyrics state
-const showLyrics = ref(false);
+const showLyrics = ref(true);
 const lyrics = ref<LrcLine[]>([]);
 const currentLineIndex = ref(-1);
 const lyricsContainerRef = ref<HTMLDivElement | null>(null);
+
+watch(showLyrics, (val) => {
+  if (val) {
+    nextTick(() => {
+      scrollToCurrentLine();
+    });
+  }
+});
 
 const canAdmin = computed(
   () => role.value === "HOST" || role.value === "MODERATOR",
@@ -280,11 +288,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    class="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl transition-all duration-500"
-    :class="{ 'h-[500px]': showLyrics }"
-  >
-    <div class="text-xs text-red-500 fixed top-0 left-0 z-50 bg-black"></div>
+  <div class="flex flex-col gap-4">
     <audio
       ref="audioRef"
       :src="audioUrl"
@@ -296,244 +300,287 @@ onUnmounted(() => {
       preload="auto"
     ></audio>
 
-    <!-- Background Blur -->
-    <div class="absolute inset-0 z-0">
-      <img
-        v-if="nowPlaying?.song.coverUrl"
-        :src="nowPlaying.song.coverUrl"
-        class="h-full w-full object-cover opacity-30 blur-3xl scale-125"
-      />
-      <div
-        v-else
-        class="h-full w-full bg-gradient-to-br from-indigo-900/40 to-slate-900/40 opacity-50 blur-3xl"
-      ></div>
-    </div>
-
-    <!-- Content -->
+    <!-- Player Card -->
     <div
-      class="relative z-10 flex flex-col gap-6 p-6 sm:flex-row sm:items-end h-full"
+      class="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl transition-all duration-500"
     >
-      <!-- Album Art / Lyrics Toggle Area -->
-      <div
-        class="relative shrink-0 transition-all duration-500 ease-in-out"
-        :class="
-          showLyrics
-            ? 'w-0 opacity-0 hidden sm:block sm:w-0 sm:opacity-0'
-            : 'w-full sm:w-48 lg:w-64 aspect-square'
-        "
-      >
-        <!-- Standard Cover View -->
+      <div class="text-xs text-red-500 fixed top-0 left-0 z-50 bg-black"></div>
+
+      <!-- Background Blur -->
+      <div class="absolute inset-0 z-0">
+        <img
+          v-if="nowPlaying?.song.coverUrl"
+          :src="nowPlaying.song.coverUrl"
+          class="h-full w-full object-cover opacity-30 blur-3xl scale-125"
+        />
         <div
-          class="group relative h-full w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20 shadow-xl"
+          v-else
+          class="h-full w-full bg-gradient-to-br from-indigo-900/40 to-slate-900/40 opacity-50 blur-3xl"
+        ></div>
+      </div>
+
+      <!-- Content -->
+      <div
+        class="relative z-10 flex flex-col gap-6 p-6 sm:flex-row sm:items-end h-full"
+      >
+        <!-- Album Art -->
+        <div
+          class="relative shrink-0 transition-all duration-500 ease-in-out w-full sm:w-48 lg:w-64 aspect-square"
         >
-          <img
-            v-if="nowPlaying?.song.coverUrl"
-            :src="nowPlaying.song.coverUrl"
-            class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-            :class="{ 'animate-spin-slow': isPlaying }"
-          />
+          <!-- Standard Cover View -->
           <div
-            v-else
-            class="flex h-full w-full items-center justify-center text-white/10"
+            class="group relative h-full w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20 shadow-xl"
           >
-            <Disc3
-              class="h-24 w-24"
+            <img
+              v-if="nowPlaying?.song.coverUrl"
+              :src="nowPlaying.song.coverUrl"
+              class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
               :class="{ 'animate-spin-slow': isPlaying }"
             />
-          </div>
-
-          <!-- Hover Play Button -->
-          <div
-            v-if="canAdmin"
-            class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
-          >
-            <button
-              aria-label="播放/暂停"
-              data-testid="nowplaying-hover-toggle-play"
-              class="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-md transition-transform hover:scale-110"
-              @click="togglePlay"
-            >
-              <Pause v-if="isPlaying" class="h-8 w-8 text-white fill-white" />
-              <Play v-else class="ml-1 h-8 w-8 text-white fill-white" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Lyrics Panel (Takes over space when active) -->
-      <div
-        v-if="showLyrics"
-        class="absolute inset-0 z-20 flex flex-col bg-black/40 backdrop-blur-xl p-6 transition-all duration-500"
-      >
-        <div class="flex items-center justify-between mb-4 shrink-0">
-          <div class="text-sm font-medium text-white/60">Lyrics</div>
-          <Button variant="ghost" size="icon" @click="showLyrics = false">
-            <VolumeX class="h-4 w-4 rotate-45" />
-            <!-- Close icon proxy -->
-          </Button>
-        </div>
-
-        <div
-          ref="lyricsContainerRef"
-          class="flex-1 overflow-y-auto scrollbar-hide text-center space-y-6 mask-image-gradient"
-        >
-          <div
-            v-if="lyrics.length === 0"
-            class="h-full flex items-center justify-center text-white/40"
-          >
-            暂无歌词
-          </div>
-          <div
-            v-for="(line, index) in lyrics"
-            :key="index"
-            class="transition-all duration-300 px-4"
-            :class="
-              index === currentLineIndex
-                ? 'text-white text-xl font-bold scale-110'
-                : 'text-white/40 text-base blur-[0.5px]'
-            "
-          >
-            {{ line.text }}
-          </div>
-        </div>
-      </div>
-
-      <!-- Info & Controls (Standard View) -->
-      <div
-        class="flex flex-1 flex-col justify-end gap-4 min-w-0"
-        :class="{ 'opacity-0 pointer-events-none': showLyrics }"
-      >
-        <div class="space-y-1">
-          <div
-            class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-white/60"
-          >
-            <span v-if="nowPlaying" class="flex items-center gap-1">
-              <span
-                class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"
-              ></span>
-              Now Playing
-            </span>
-            <span v-else>Idle</span>
-          </div>
-
-          <h2
-            data-testid="nowplaying-title"
-            class="truncate text-3xl font-bold text-white sm:text-4xl"
-          >
-            {{ nowPlaying?.song.title || "暂无播放" }}
-          </h2>
-          <p class="truncate text-lg text-white/70">
-            {{ nowPlaying?.song.artist || "等待点歌..." }}
-          </p>
-        </div>
-
-        <div
-          v-if="nowPlaying"
-          class="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-xs text-white/50 w-fit backdrop-blur-md"
-        >
-          <img
-            :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${nowPlaying.requestedBy.id}`"
-            class="h-5 w-5 rounded-full bg-white/10"
-          />
-          <span>Requested by {{ nowPlaying.requestedBy.displayName }}</span>
-        </div>
-
-        <!-- Progress Bar -->
-        <div class="w-full space-y-2" v-if="nowPlaying">
-          <div
-            class="relative h-1.5 w-full overflow-hidden rounded-full bg-white/10 group"
-            :class="canAdmin ? 'cursor-pointer' : 'cursor-default'"
-            @click="
-              (e) => {
-                if (!audioRef || !canAdmin) return;
-                const rect = (e.target as HTMLElement).getBoundingClientRect();
-                const pos = (e.clientX - rect.left) / rect.width;
-                audioRef.currentTime = pos * (audioRef.duration || 0);
-              }
-            "
-          >
             <div
-              class="h-full rounded-full bg-white transition-all duration-100 ease-linear"
-              :style="{ width: `${(currentTime / (duration || 1)) * 100}%` }"
-            ></div>
-          </div>
-          <div class="flex justify-between text-xs text-white/40 font-mono">
-            <span>{{ formatTime(currentTime) }}</span>
-            <span>{{
-              formatTime(duration || nowPlaying.song.durationSec || 0)
-            }}</span>
-          </div>
-        </div>
-
-        <!-- Controls -->
-        <div class="flex items-center justify-between pt-2">
-          <!-- Volume & Lyrics Toggle -->
-          <div class="flex items-center gap-2 group/volume">
-            <Button
-              variant="ghost"
-              size="icon"
-              class="h-8 w-8 text-white/60 hover:text-white"
-              @click="toggleMute"
+              v-else
+              class="flex h-full w-full items-center justify-center text-white/10"
             >
-              <VolumeX v-if="isMuted || volume === 0" class="h-4 w-4" />
-              <Volume2 v-else class="h-4 w-4" />
-            </Button>
-            <div
-              class="w-0 overflow-hidden transition-all duration-300 group-hover/volume:w-24"
-            >
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                :value="volume"
-                class="h-1 w-20 cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
-                @input="onVolumeChange"
+              <Disc3
+                class="h-24 w-24"
+                :class="{ 'animate-spin-slow': isPlaying }"
               />
+            </div>
+
+            <!-- Hover Play Button -->
+            <div
+              v-if="canAdmin"
+              class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
+            >
+              <button
+                aria-label="播放/暂停"
+                data-testid="nowplaying-hover-toggle-play"
+                class="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-md transition-transform hover:scale-110"
+                @click="togglePlay"
+              >
+                <Pause v-if="isPlaying" class="h-8 w-8 text-white fill-white" />
+                <Play v-else class="ml-1 h-8 w-8 text-white fill-white" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Info & Controls (Standard View) -->
+        <div class="flex flex-1 flex-col justify-end gap-4 min-w-0">
+          <div class="space-y-1">
+            <div
+              class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-white/60"
+            >
+              <span v-if="nowPlaying" class="flex items-center gap-1">
+                <span
+                  class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"
+                ></span>
+                Now Playing
+              </span>
+              <span v-else>Idle</span>
+            </div>
+
+            <h2
+              data-testid="nowplaying-title"
+              class="truncate text-3xl font-bold text-white sm:text-4xl"
+            >
+              {{ nowPlaying?.song.title || "暂无播放" }}
+            </h2>
+            <p class="truncate text-lg text-white/70">
+              {{ nowPlaying?.song.artist || "等待点歌..." }}
+            </p>
+          </div>
+
+          <div
+            v-if="nowPlaying"
+            class="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-xs text-white/50 w-fit backdrop-blur-md"
+          >
+            <img
+              :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${nowPlaying.requestedBy.id}`"
+              class="h-5 w-5 rounded-full bg-white/10"
+            />
+            <span>Requested by {{ nowPlaying.requestedBy.displayName }}</span>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="w-full space-y-2" v-if="nowPlaying">
+            <div
+              class="relative h-1.5 w-full overflow-hidden rounded-full bg-white/10 group"
+              :class="canAdmin ? 'cursor-pointer' : 'cursor-default'"
+              @click="
+                (e) => {
+                  if (!audioRef || !canAdmin) return;
+                  const rect = (
+                    e.target as HTMLElement
+                  ).getBoundingClientRect();
+                  const pos = (e.clientX - rect.left) / rect.width;
+                  audioRef.currentTime = pos * (audioRef.duration || 0);
+                }
+              "
+            >
+              <div
+                class="h-full rounded-full bg-white transition-all duration-100 ease-linear"
+                :style="{ width: `${(currentTime / (duration || 1)) * 100}%` }"
+              ></div>
+            </div>
+            <div class="flex justify-between text-xs text-white/40 font-mono">
+              <span>{{ formatTime(currentTime) }}</span>
+              <span>{{
+                formatTime(duration || nowPlaying.song.durationSec || 0)
+              }}</span>
             </div>
           </div>
 
-          <div class="flex items-center gap-3">
-            <!-- Lyrics Button -->
-            <Button
-              v-if="nowPlaying"
-              variant="ghost"
-              size="icon"
-              class="h-10 w-10 rounded-full text-white/60 hover:text-white hover:bg-white/10"
-              @click="showLyrics = true"
-              title="歌词"
-            >
-              <Mic2 class="h-5 w-5" />
-            </Button>
+          <!-- Controls -->
+          <div class="flex items-center justify-between pt-2">
+            <!-- Volume & Lyrics Toggle -->
+            <div class="flex items-center gap-2 group/volume">
+              <Button
+                variant="ghost"
+                size="icon"
+                class="h-8 w-8 text-white/60 hover:text-white"
+                @click="toggleMute"
+              >
+                <VolumeX v-if="isMuted || volume === 0" class="h-4 w-4" />
+                <Volume2 v-else class="h-4 w-4" />
+              </Button>
+              <div
+                class="w-0 overflow-hidden transition-all duration-300 group-hover/volume:w-24"
+              >
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  :value="volume"
+                  class="h-1 w-20 cursor-pointer appearance-none rounded-full bg-white/20 accent-white"
+                  @input="onVolumeChange"
+                />
+              </div>
+            </div>
 
-            <Button
-              v-if="nowPlaying && canAdmin"
-              variant="secondary"
-              size="icon"
-              class="h-10 w-10 rounded-full"
-              data-testid="nowplaying-toggle-play"
-              aria-label="播放/暂停"
-              @click="togglePlay"
-            >
-              <Pause v-if="isPlaying" class="h-5 w-5 fill-current" />
-              <Play v-else class="ml-1 h-5 w-5 fill-current" />
-            </Button>
+            <div class="flex items-center gap-3">
+              <!-- Lyrics Button -->
+              <Button
+                v-if="nowPlaying"
+                variant="ghost"
+                size="icon"
+                class="h-10 w-10 rounded-full transition-all duration-300"
+                :class="
+                  showLyrics
+                    ? 'text-white bg-white/20'
+                    : 'text-white/60 hover:text-white hover:bg-white/10'
+                "
+                @click="showLyrics = !showLyrics"
+                title="歌词"
+              >
+                <Mic2 class="h-5 w-5" />
+              </Button>
 
-            <Button
-              v-if="canAdmin && nowPlaying"
-              variant="secondary"
-              size="sm"
-              :loading="nextLoading"
-              data-testid="nowplaying-next"
-              @click="nextSong"
-            >
-              <SkipForward class="mr-2 h-4 w-4" />
-              切歌
-            </Button>
+              <Button
+                v-if="nowPlaying && canAdmin"
+                variant="secondary"
+                size="icon"
+                class="h-10 w-10 rounded-full"
+                data-testid="nowplaying-toggle-play"
+                aria-label="播放/暂停"
+                @click="togglePlay"
+              >
+                <Pause v-if="isPlaying" class="h-5 w-5 fill-current" />
+                <Play v-else class="ml-1 h-5 w-5 fill-current" />
+              </Button>
+
+              <Button
+                v-if="canAdmin && nowPlaying"
+                variant="secondary"
+                size="sm"
+                :loading="nextLoading"
+                data-testid="nowplaying-next"
+                @click="nextSong"
+              >
+                <SkipForward class="mr-2 h-4 w-4" />
+                切歌
+              </Button>
+            </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Independent Lyrics Module -->
+    <transition
+      enter-active-class="transition-all duration-300 ease-out"
+      enter-from-class="opacity-0 -translate-y-4"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition-all duration-200 ease-in"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 -translate-y-4"
+    >
+      <div
+        v-if="showLyrics && nowPlaying"
+        class="relative flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/90 shadow-2xl h-96"
+      >
+        <!-- Background Blur for Lyrics -->
+        <div class="absolute inset-0 z-0">
+          <img
+            v-if="nowPlaying?.song.coverUrl"
+            :src="nowPlaying.song.coverUrl"
+            class="h-full w-full object-cover opacity-10 blur-3xl scale-150"
+          />
+        </div>
+
+        <!-- Lyrics Content -->
+        <div class="relative z-10 flex flex-col h-full p-6">
+          <div class="flex items-center justify-between mb-4 shrink-0">
+            <div
+              class="text-sm font-medium text-white/60 flex items-center gap-2"
+            >
+              <Mic2 class="h-4 w-4" />
+              Lyrics
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-8 w-8 text-white/40 hover:text-white"
+              @click="showLyrics = false"
+            >
+              <VolumeX class="h-4 w-4 rotate-45" />
+            </Button>
+          </div>
+
+          <div
+            ref="lyricsContainerRef"
+            class="flex-1 overflow-y-auto scrollbar-hide text-center space-y-6 mask-image-gradient py-8"
+          >
+            <div
+              v-if="lyrics.length === 0"
+              class="h-full flex items-center justify-center text-white/40"
+            >
+              暂无歌词
+            </div>
+            <div
+              v-for="(line, index) in lyrics"
+              :key="index"
+              class="transition-all duration-300 px-4 cursor-pointer hover:opacity-80"
+              :class="
+                index === currentLineIndex
+                  ? 'text-white text-xl font-bold scale-110'
+                  : 'text-white/40 text-base blur-[0.5px]'
+              "
+              @click="
+                () => {
+                  if (audioRef && canAdmin) {
+                    audioRef.currentTime = line.time;
+                  }
+                }
+              "
+            >
+              {{ line.text }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
