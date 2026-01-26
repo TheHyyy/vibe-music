@@ -12,8 +12,8 @@ const actionLoading = useRoomSelector((s) => s.actionLoading);
 const form = reactive({
   allowAnonymous: true,
   allowDuplicateSongs: false,
-  maxQueuedPerUser: 3,
-  skipVoteThreshold: 3,
+  maxQueuedPerUser: 10,
+  skipVoteThreshold: 1,
 });
 
 watch(
@@ -63,13 +63,27 @@ async function save() {
       </div>
       <div class="space-y-1">
         <div class="text-sm">每人队列上限</div>
-        <el-input-number v-model="form.maxQueuedPerUser" :min="1" :max="20" size="small" class="w-full" />
+        <el-input-number
+          v-model="form.maxQueuedPerUser"
+          :min="1"
+          :max="20"
+          size="small"
+          class="w-full"
+        />
       </div>
       <div class="space-y-1">
         <div class="text-sm">跳过投票阈值</div>
-        <el-input-number v-model="form.skipVoteThreshold" :min="1" :max="50" size="small" class="w-full" />
+        <el-input-number
+          v-model="form.skipVoteThreshold"
+          :min="1"
+          :max="50"
+          size="small"
+          class="w-full"
+        />
       </div>
-      <el-button type="primary" class="w-full" :loading="saving" @click="save">保存</el-button>
+      <el-button type="primary" class="w-full" :loading="saving" @click="save"
+        >保存</el-button
+      >
     </div>
   </div>
 </template>

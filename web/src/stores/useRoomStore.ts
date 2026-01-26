@@ -1,6 +1,7 @@
 import { onUnmounted, shallowRef, computed } from "vue";
 import { createStore } from "zustand/vanilla";
 import type {
+  PlaybackState,
   QueueItem,
   Room,
   RoomStatePayload,
@@ -15,6 +16,7 @@ export interface RoomStoreState {
   members: UserSummary[];
   nowPlaying?: QueueItem;
   queue: QueueItem[];
+  playback: PlaybackState;
   actionLoading: Record<string, boolean>;
   kicked?: { reason?: string };
   actions: {
@@ -22,6 +24,7 @@ export interface RoomStoreState {
     setToken(token: string): void;
     setActionLoading(key: string, loading: boolean): void;
     setQueue(queue: QueueItem[]): void;
+    setPlayback(state: PlaybackState): void;
     addOptimisticQueueItem(song: Song): string;
     removeQueueItem(id: string): void;
     updateVote(itemId: string, voteScore: number): void;
@@ -37,6 +40,7 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
   members: [],
   nowPlaying: undefined,
   queue: [],
+  playback: { isPaused: true, startTime: 0 },
   actionLoading: {},
   kicked: undefined,
   actions: {
@@ -55,6 +59,7 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
         members: payload.members,
         nowPlaying: payload.nowPlaying,
         queue: mergedQueue,
+        playback: payload.playback,
         kicked: undefined,
       });
     },
@@ -72,6 +77,9 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
       const currentNowPlaying = get().nowPlaying;
       const mergedQueue = mergeQueue(queue, currentQueue, currentNowPlaying);
       set({ queue: mergedQueue });
+    },
+    setPlayback(state) {
+      set({ playback: state });
     },
     addOptimisticQueueItem(song) {
       const state = get();
@@ -112,6 +120,7 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
         members: [],
         nowPlaying: undefined,
         queue: [],
+        playback: { isPaused: true, startTime: 0 },
         actionLoading: {},
         kicked: undefined,
       });

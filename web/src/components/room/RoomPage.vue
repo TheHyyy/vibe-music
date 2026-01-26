@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import useSWRV from "swrv";
 import { ElMessage } from "element-plus";
@@ -25,7 +25,9 @@ const showJoinDialog = ref(false);
 // Mobile Tabs: 'player' | 'queue' | 'members'
 const activeTab = ref<"player" | "queue" | "members">("player");
 
-const { connect } = useWebSocket(roomId.value);
+const wsClient = useWebSocket(roomId.value);
+provide("socketClient", wsClient);
+const { connect } = wsClient;
 
 const {
   data: stateRes,

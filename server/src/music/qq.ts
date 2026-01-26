@@ -46,7 +46,7 @@ export class QQProvider implements MusicProvider {
       return res?.[realId] || null;
     } catch (e) {
       console.error("QQ getPlayUrl error:", e);
-      return null;
+      throw e; // Rethrow to let the caller handle it (and send to client)
     }
   }
 

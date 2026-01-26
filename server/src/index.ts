@@ -18,6 +18,7 @@ import {
   roomRole,
   roomStateForUser,
   rooms,
+  updatePlayback,
   updateSettings,
 } from "./store.js";
 import { searchMusic, getPlayUrl, getLyric } from "./music/service.js";
@@ -307,6 +308,14 @@ app.get("/api/songs/lyric", async (req, res) => {
   }
 });
 
+app.get("/api/config", (req, res) => {
+  res.json(
+    ok({
+      enableQQ: process.env.ENABLE_QQ_MUSIC === "true",
+    }),
+  );
+});
+
 // SPA Fallback: 所有未匹配 API 的 GET 请求返回 index.html
 app.get("*", (req, res) => {
   res.sendFile(path.join(clientDist, "index.html"));
@@ -346,6 +355,43 @@ io.on("connection", (socket) => {
         broadcastRoomState(body.roomId);
       } catch (e) {
         ack?.(err((e as Error).message));
+      }
+    },
+  );
+
+  socket.on("disconnect", () => {
+    try {
+      const userId = (socket.data as any).userId;
+      const roomId = (socket.data as any).roomId;
+      if (userId && roomId) {
+        removeMember(roomId, userId);
+        broadcastRoomState(roomId);
+      }
+    } catch (e) {
+      console.error("disconnect error", e);
+    }
+  });
+
+  socket.on(
+    "player:update",
+    (body: { roomId: string; isPaused: boolean; currentTime: number }) => {
+      try {
+        const userId = (socket.data as any).userId as string;
+        const roomId = (socket.data as any).roomId as string;
+        if (roomId !== body.roomId) return;
+
+        const role = roomRole(roomId, userId);
+        if (role !== "HOST" && role !== "MODERATOR") return;
+
+        const state = updatePlayback(roomId, {
+          isPaused: body.isPaused,
+          startTime: Date.now() - body.currentTime * 1000,
+          pausedAt: body.isPaused ? Date.now() : undefined,
+        });
+
+        io.to(roomId).emit("player:sync", state);
+      } catch (e) {
+        console.error("player:update error", e);
       }
     },
   );

@@ -1,11 +1,20 @@
 import { nanoid } from "nanoid";
-import type { QueueItem, Room, RoomRole, RoomSettings, Song, UserSummary } from "./types.js";
+import type {
+  PlaybackState,
+  QueueItem,
+  Room,
+  RoomRole,
+  RoomSettings,
+  Song,
+  UserSummary,
+} from "./types.js";
 
 export interface RoomRecord {
   room: Room;
   members: Map<string, UserSummary>;
   queue: QueueItem[];
   nowPlaying?: QueueItem;
+  playback: PlaybackState;
   blacklist: Set<string>;
   votes: Map<string, "UP" | "DOWN" | "SKIP">;
 }
@@ -22,7 +31,10 @@ export function defaultSettings(): RoomSettings {
   };
 }
 
-export function createRoom(input: { name: string; host: { id: string; displayName: string } }): {
+export function createRoom(input: {
+  name: string;
+  host: { id: string; displayName: string };
+}): {
   roomId: string;
   host: UserSummary;
 } {
@@ -44,6 +56,7 @@ export function createRoom(input: { name: string; host: { id: string; displayNam
     members: new Map([[host.id, host]]),
     queue: [],
     nowPlaying: undefined,
+    playback: { isPaused: false, startTime: 0 },
     blacklist: new Set(),
     votes: new Map(),
   };
@@ -52,7 +65,10 @@ export function createRoom(input: { name: string; host: { id: string; displayNam
   return { roomId, host };
 }
 
-export function joinRoom(input: { code: string; user: { id: string; displayName: string } }): {
+export function joinRoom(input: {
+  code: string;
+  user: { id: string; displayName: string };
+}): {
   roomId: string;
   member: UserSummary;
 } {
@@ -85,15 +101,23 @@ export function roomRole(roomId: string, userId: string): RoomRole | null {
   return rec.members.get(userId)?.role || null;
 }
 
-export function addQueueItem(roomId: string, user: UserSummary, song: Song): QueueItem {
+export function addQueueItem(
+  roomId: string,
+  user: UserSummary,
+  song: Song,
+): QueueItem {
   const rec = rooms.get(roomId);
   if (!rec) throw new Error("房间不存在");
   const settings = rec.room.settings;
   if (!settings.allowDuplicateSongs) {
-    if (rec.queue.some((it) => it.song.id === song.id)) throw new Error("队列中已存在该歌曲");
+    if (rec.queue.some((it) => it.song.id === song.id))
+      throw new Error("队列中已存在该歌曲");
   }
-  const queuedByUser = rec.queue.filter((it) => it.requestedBy.id === user.id).length;
-  if (queuedByUser >= settings.maxQueuedPerUser) throw new Error("已达到个人点歌上限");
+  const queuedByUser = rec.queue.filter(
+    (it) => it.requestedBy.id === user.id,
+  ).length;
+  if (queuedByUser >= settings.maxQueuedPerUser)
+    throw new Error("已达到个人点歌上限");
   const item: QueueItem = {
     id: nanoid(12),
     roomId,
@@ -106,10 +130,11 @@ export function addQueueItem(roomId: string, user: UserSummary, song: Song): Que
   // 如果当前没有播放，直接播放这首
   if (!rec.nowPlaying) {
     rec.nowPlaying = item;
+    rec.playback = { isPaused: false, startTime: Date.now() };
   } else {
     rec.queue = sortQueue([...rec.queue, item]);
   }
-  
+
   return item;
 }
 
@@ -120,7 +145,12 @@ export function sortQueue(queue: QueueItem[]) {
   });
 }
 
-export function applyVote(roomId: string, userId: string, itemId: string, type: "UP" | "DOWN" | "SKIP") {
+export function applyVote(
+  roomId: string,
+  userId: string,
+  itemId: string,
+  type: "UP" | "DOWN" | "SKIP",
+) {
   const rec = rooms.get(roomId);
   if (!rec) throw new Error("房间不存在");
   const voteKey = `${roomId}:${itemId}:${userId}`;
@@ -129,7 +159,9 @@ export function applyVote(roomId: string, userId: string, itemId: string, type: 
   rec.votes.set(voteKey, type);
   const score = currentVoteScore(rec, itemId);
   rec.queue = sortQueue(
-    rec.queue.map((it) => (it.id === itemId ? { ...it, voteScore: score } : it)),
+    rec.queue.map((it) =>
+      it.id === itemId ? { ...it, voteScore: score } : it,
+    ),
   );
   return score;
 }
@@ -151,7 +183,19 @@ export function nextSong(roomId: string) {
   const [first, ...rest] = rec.queue;
   rec.nowPlaying = first;
   rec.queue = rest;
+  if (first) {
+    rec.playback = { isPaused: false, startTime: Date.now() };
+  } else {
+    rec.playback = { isPaused: false, startTime: 0 };
+  }
   return rec.nowPlaying;
+}
+
+export function updatePlayback(roomId: string, state: Partial<PlaybackState>) {
+  const rec = rooms.get(roomId);
+  if (!rec) throw new Error("房间不存在");
+  rec.playback = { ...rec.playback, ...state };
+  return rec.playback;
 }
 
 export function removeMember(roomId: string, userId: string) {
@@ -171,5 +215,6 @@ export function roomStateForUser(roomId: string, userId: string) {
     members: Array.from(rec.members.values()),
     nowPlaying: rec.nowPlaying,
     queue: rec.queue,
+    playback: rec.playback,
   };
 }

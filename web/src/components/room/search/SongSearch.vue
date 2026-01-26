@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import { Search, Plus, Loader2, Disc3 } from "lucide-vue-next";
-import { searchSongs } from "@/api/songs";
+import { searchSongs, getSystemConfig } from "@/api/songs";
 import { requestSong } from "@/api/rooms";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
 import type { Song } from "@/types/api";
@@ -17,6 +17,18 @@ const q = ref("");
 const searching = ref(false);
 const results = ref<Song[]>([]);
 const hasSearched = ref(false);
+const enableQQ = ref(false);
+
+onMounted(async () => {
+  try {
+    const res = await getSystemConfig();
+    if (res.ok) {
+      enableQQ.value = res.data.enableQQ;
+    }
+  } catch (e) {
+    console.error("Failed to load config", e);
+  }
+});
 
 const addLoadingKey = (id: string) => `queue:add:${id}`;
 const isAdding = (id: string) => !!actionLoading.value[addLoadingKey(id)];

@@ -9,6 +9,7 @@ export interface WebSocketClient {
   connect: () => void;
   disconnect: () => void;
   emitAck: <T>(event: string, body: unknown) => Promise<T>;
+  emit: (event: string, body: unknown) => void;
 }
 
 export function useWebSocket(roomId: string): WebSocketClient {
@@ -32,6 +33,10 @@ export function useWebSocket(roomId: string): WebSocketClient {
 
     socket.on("room:state", (payload: RoomStatePayload) => {
       actions.hydrate(payload);
+    });
+
+    socket.on("player:sync", (state) => {
+      actions.setPlayback(state);
     });
 
     socket.on(
@@ -79,6 +84,10 @@ export function useWebSocket(roomId: string): WebSocketClient {
     });
   }
 
+  function emit(event: string, body: unknown) {
+    socketRef.value?.emit(event, body);
+  }
+
   onUnmounted(() => {
     disconnect();
   });
@@ -87,5 +96,6 @@ export function useWebSocket(roomId: string): WebSocketClient {
     connect,
     disconnect,
     emitAck,
+    emit,
   };
 }

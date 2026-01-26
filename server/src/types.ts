@@ -38,12 +38,19 @@ export interface QueueItem {
   createdAt: string;
 }
 
+export interface PlaybackState {
+  isPaused: boolean;
+  startTime: number;
+  pausedAt?: number;
+}
+
 export interface RoomStatePayload {
   room: Room;
   currentUser: UserSummary;
   members: UserSummary[];
   nowPlaying?: QueueItem;
   queue: QueueItem[];
+  playback: PlaybackState;
 }
 
 export type ApiResult<T> =

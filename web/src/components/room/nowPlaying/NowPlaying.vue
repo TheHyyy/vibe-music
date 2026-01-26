@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted, nextTick } from "vue";
+import {
+  computed,
+  ref,
+  watch,
+  onMounted,
+  onUnmounted,
+  nextTick,
+  inject,
+} from "vue";
 import { ElMessage } from "element-plus";
 import {
   SkipForward,
@@ -13,14 +21,17 @@ import {
 import { adminNext } from "@/api/rooms";
 import { getPlayUrl, getLyric } from "@/api/songs";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
+import type { WebSocketClient } from "@/hooks/useWebSocket";
 import { parseLrc, findCurrentLineIndex, type LrcLine } from "@/lib/lrc";
 import Button from "@/components/ui/Button.vue";
 
 const actions = useRoomActions();
 const nowPlaying = useRoomSelector((s) => s.nowPlaying);
+const playback = useRoomSelector((s) => s.playback);
 const role = useRoomSelector((s) => s.currentUser?.role);
 const roomId = useRoomSelector((s) => s.room?.id);
 const actionLoading = useRoomSelector((s) => s.actionLoading);
+const socketClient = inject<WebSocketClient>("socketClient");
 
 const audioRef = ref<HTMLAudioElement | null>(null);
 const isPlaying = ref(false);
@@ -102,6 +113,34 @@ watch(
   { immediate: true },
 );
 
+// Guest Sync Logic
+watch(
+  () => playback.value,
+  (state) => {
+    if (canAdmin.value || !audioRef.value) return;
+
+    if (state.isPaused) {
+      if (!audioRef.value.paused) audioRef.value.pause();
+      if (state.pausedAt) {
+        const targetTime = (state.pausedAt - state.startTime) / 1000;
+        if (Math.abs(audioRef.value.currentTime - targetTime) > 0.5) {
+          audioRef.value.currentTime = targetTime;
+        }
+      }
+    } else {
+      const targetTime = (Date.now() - state.startTime) / 1000;
+      // If drift > 2s, seek
+      if (Math.abs(audioRef.value.currentTime - targetTime) > 2) {
+        audioRef.value.currentTime = targetTime;
+      }
+      if (audioRef.value.paused) {
+        audioRef.value.play().catch(() => {});
+      }
+    }
+  },
+  { deep: true, immediate: true },
+);
+
 function togglePlay() {
   if (!audioRef.value || !canAdmin.value) return;
   if (isPlaying.value) {
@@ -177,12 +216,29 @@ function onEnded() {
   }
 }
 
+function emitPlayerUpdate(isPaused: boolean, currentTime: number) {
+  if (!canAdmin.value || !socketClient || !roomId.value) return;
+  socketClient.emit("player:update", {
+    roomId: roomId.value,
+    isPaused,
+    currentTime,
+  });
+}
+
 function onPlay() {
   isPlaying.value = true;
+  emitPlayerUpdate(false, audioRef.value?.currentTime || 0);
 }
 
 function onPause() {
   isPlaying.value = false;
+  emitPlayerUpdate(true, audioRef.value?.currentTime || 0);
+}
+
+function onSeeked() {
+  if (audioRef.value) {
+    emitPlayerUpdate(audioRef.value.paused, audioRef.value.currentTime);
+  }
 }
 
 async function nextSong() {
@@ -228,6 +284,7 @@ onUnmounted(() => {
     class="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl transition-all duration-500"
     :class="{ 'h-[500px]': showLyrics }"
   >
+    <div class="text-xs text-red-500 fixed top-0 left-0 z-50 bg-black"></div>
     <audio
       ref="audioRef"
       :src="audioUrl"
@@ -235,6 +292,7 @@ onUnmounted(() => {
       @ended="onEnded"
       @play="onPlay"
       @pause="onPause"
+      @seeked="onSeeked"
       preload="auto"
     ></audio>
 
@@ -286,6 +344,7 @@ onUnmounted(() => {
 
           <!-- Hover Play Button -->
           <div
+            v-if="canAdmin"
             class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
           >
             <button
@@ -382,10 +441,11 @@ onUnmounted(() => {
         <!-- Progress Bar -->
         <div class="w-full space-y-2" v-if="nowPlaying">
           <div
-            class="relative h-1.5 w-full cursor-pointer overflow-hidden rounded-full bg-white/10 group"
+            class="relative h-1.5 w-full overflow-hidden rounded-full bg-white/10 group"
+            :class="canAdmin ? 'cursor-pointer' : 'cursor-default'"
             @click="
               (e) => {
-                if (!audioRef) return;
+                if (!audioRef || !canAdmin) return;
                 const rect = (e.target as HTMLElement).getBoundingClientRect();
                 const pos = (e.clientX - rect.left) / rect.width;
                 audioRef.currentTime = pos * (audioRef.duration || 0);

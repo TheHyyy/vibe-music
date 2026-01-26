@@ -25,3 +25,8 @@ export async function getLyric(
   });
   return res.data;
 }
+
+export async function getSystemConfig(): Promise<ApiResult<import("@/types/api").ServerConfig>> {
+  const res = await http.get<ApiResult<import("@/types/api").ServerConfig>>("/api/config");
+  return res.data;
+}
