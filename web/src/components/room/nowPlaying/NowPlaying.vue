@@ -103,12 +103,19 @@ watch(
 );
 
 function togglePlay() {
-  if (!audioRef.value) return;
+  if (!audioRef.value || !canAdmin.value) return;
   if (isPlaying.value) {
     audioRef.value.pause();
   } else {
     audioRef.value.play();
   }
+}
+
+function handleProgressClick(e: MouseEvent) {
+  if (!canAdmin.value || !audioRef.value) return;
+  const rect = (e.target as HTMLElement).getBoundingClientRect();
+  const pos = (e.clientX - rect.left) / rect.width;
+  audioRef.value.currentTime = pos * (audioRef.value.duration || 0);
 }
 
 function toggleMute() {
@@ -201,7 +208,9 @@ function onKeydown(e: KeyboardEvent) {
     return;
   if (e.code === "Space") {
     e.preventDefault();
-    togglePlay();
+    if (canAdmin.value) {
+      togglePlay();
+    }
   }
 }
 
@@ -438,7 +447,7 @@ onUnmounted(() => {
             </Button>
 
             <Button
-              v-if="nowPlaying"
+              v-if="nowPlaying && canAdmin"
               variant="secondary"
               size="icon"
               class="h-10 w-10 rounded-full"

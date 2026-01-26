@@ -20,8 +20,10 @@ export class QQProvider implements MusicProvider {
     try {
       // 使用 qq-music-api 的搜索接口
       const res = await qq.api("search", { key: query, pageSize: 10 });
-      
-      const list = res?.data?.list || [];
+
+      // qq-music-api 返回结构调整：部分版本直接返回 list，部分返回 data.list
+      // @ts-ignore
+      const list = res?.list || res?.data?.list || [];
       return list.map((s: any) => ({
         id: `qq:${s.songmid}`,
         title: s.songname,

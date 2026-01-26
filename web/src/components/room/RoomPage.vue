@@ -8,6 +8,7 @@ import RoomHeader from "@/components/room/RoomHeader.vue";
 import SidebarLeft from "@/components/room/SidebarLeft.vue";
 import SidebarRight from "@/components/room/SidebarRight.vue";
 import MainStage from "@/components/room/MainStage.vue";
+import JoinRoomDialog from "@/components/room/JoinRoomDialog.vue";
 import { getRoomState } from "@/api/rooms";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -19,28 +20,64 @@ const actions = useRoomActions();
 const roomId = computed(() => String(route.params.roomId || ""));
 const kicked = useRoomSelector((s) => s.kicked);
 const queue = useRoomSelector((s) => s.queue);
+const showJoinDialog = ref(false);
 
 // Mobile Tabs: 'player' | 'queue' | 'members'
 const activeTab = ref<"player" | "queue" | "members">("player");
 
 const { connect } = useWebSocket(roomId.value);
 
-const { data: stateRes, error: stateError } = useSWRV(
-  () => (roomId.value ? ["roomState", roomId.value] : null),
-  async () => await getRoomState(roomId.value),
-  { refreshInterval: 10_000, revalidateOnFocus: true },
+const {
+  data: stateRes,
+  error: stateError,
+  mutate: reloadState,
+} = useSWRV(
+  () =>
+    roomId.value && !showJoinDialog.value ? ["roomState", roomId.value] : null,
+  async () => {
+    try {
+      return await getRoomState(roomId.value);
+    } catch (e) {
+      // Manually handle 401 if swrv doesn't update error ref immediately
+      if ((e as any).response?.status === 401) {
+        showJoinDialog.value = true;
+      }
+      throw e;
+    }
+  },
+  {
+    refreshInterval: 0, // Disable polling, rely on WebSocket
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+  },
 );
 
 watch(
   () => stateError.value,
   (err) => {
-    if (err && (err.response?.status === 401 || err.response?.status === 404)) {
-      ElMessage.error("房间已过期或不存在");
-      actions.resetRoom();
-      router.replace({ path: "/" });
+    if (err) {
+      // Check for 401 (Unauthorized)
+      if (err.response?.status === 401) {
+        showJoinDialog.value = true;
+        return;
+      }
+      // Check for 404 (Not Found)
+      if (err.response?.status === 404) {
+        ElMessage.error("房间不存在");
+        actions.resetRoom();
+        router.replace({ path: "/" });
+        return;
+      }
     }
   },
+  { immediate: true },
 );
+
+function onJoinSuccess() {
+  showJoinDialog.value = false;
+  reloadState();
+  connect();
+}
 
 watch(
   () => stateRes.value,
@@ -77,6 +114,12 @@ onMounted(() => {
     </div>
 
     <RoomHeader />
+
+    <JoinRoomDialog
+      v-if="showJoinDialog"
+      :room-id="roomId"
+      @success="onJoinSuccess"
+    />
 
     <div class="flex-1 overflow-hidden relative">
       <div class="mx-auto h-full max-w-[1600px] p-4 lg:p-6">

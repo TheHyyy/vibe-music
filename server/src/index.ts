@@ -116,6 +116,25 @@ app.post("/api/rooms/join", (req, res) => {
   }
 });
 
+app.get("/api/rooms/:roomId/public", (req, res) => {
+  try {
+    const rec = rooms.get(req.params.roomId);
+    if (!rec) throw new Error("房间不存在");
+    const host = Array.from(rec.members.values()).find(
+      (m) => m.role === "HOST",
+    );
+    res.json(
+      ok({
+        name: rec.room.name,
+        code: rec.room.code,
+        hostName: host?.displayName,
+      }),
+    );
+  } catch (e) {
+    res.status(404).json(err((e as Error).message));
+  }
+});
+
 app.get("/api/rooms/:roomId/state", (req, res) => {
   try {
     const { userId, roomId } = authRoom(req);

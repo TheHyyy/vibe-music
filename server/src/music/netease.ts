@@ -6,7 +6,12 @@ export class NeteaseProvider implements MusicProvider {
   name = "NETEASE";
 
   private get cookie() {
-    return process.env.NETEASE_COOKIE || "";
+    const c = process.env.NETEASE_COOKIE || "";
+    // 如果看起来像纯 Token (无 key=value 格式)，则自动补全 MUSIC_U
+    if (c && !c.includes("=") && c.length > 50) {
+      return `MUSIC_U=${c}`;
+    }
+    return c;
   }
 
   async search(query: string): Promise<Song[]> {

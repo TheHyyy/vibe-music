@@ -32,6 +32,15 @@ export async function joinRoom(input: {
   return res.data;
 }
 
+export async function getPublicRoomInfo(
+  roomId: string,
+): Promise<ApiResult<{ name: string; code: string; hostName?: string }>> {
+  const res = await http.get<
+    ApiResult<{ name: string; code: string; hostName?: string }>
+  >(`/api/rooms/${roomId}/public`);
+  return res.data;
+}
+
 export async function getRoomState(
   roomId: string,
 ): Promise<ApiResult<RoomStatePayload>> {
