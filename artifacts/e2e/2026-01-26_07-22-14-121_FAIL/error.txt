@@ -1,0 +1,3 @@
+Error: Host audio paused state did not toggle
+    at main (file:///Users/houyu/Desktop/my_project/echo-music/server/e2e/lan.e2e.mjs:591:13)
+    at async file:///Users/houyu/Desktop/my_project/echo-music/server/e2e/lan.e2e.mjs:691:1

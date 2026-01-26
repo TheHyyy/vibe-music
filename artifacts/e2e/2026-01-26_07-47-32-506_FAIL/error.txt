@@ -1,0 +1,10 @@
+locator.waitFor: Error: strict mode violation: getByText('Always Online') resolved to 2 elements:
+    1) <div trae-inspector-end-line="54" trae-inspector-start-line="52" trae-inspector-end-column="13" trae-inspector-start-column="7" trae-inspector-file-path="src/components/room/queue/QueueItem.vue" class="truncate text-sm font-medium text-slate-200 group-hover:text-white" trae-inspector-static-props="%7B%22cwd%22%3A%22%2FUsers%2Fhouyu%2FDesktop%2Fmy_project%2Fecho-music%2Fweb%22%7D">Always Online</div> aka getByText('Always Online').first()
+    2) <div trae-inspector-end-line="160" trae-inspector-end-column="21" trae-inspector-start-line="156" trae-inspector-start-column="15" trae-inspector-file-path="src/components/room/search/SongSearch.vue" class="truncate text-sm font-medium text-slate-200 group-hover:text-white" trae-inspector-static-props="%7B%22cwd%22%3A%22%2FUsers%2Fhouyu%2FDesktop%2Fmy_project%2Fecho-music%2Fweb%22%7D">Always Online</div> aka getByTestId('song-search-results').getByText('Always Online')
+
+Call log:
+[2m  - waiting for getByText('Always Online') to be visible[22m
+
+    at assertQueueHasTitle (/Users/houyu/Desktop/my_project/echo-music/server/e2e/lan.e2e.mjs:372:31)
+    at main (/Users/houyu/Desktop/my_project/echo-music/server/e2e/lan.e2e.mjs:583:7)
+    at async file:///Users/houyu/Desktop/my_project/echo-music/server/e2e/lan.e2e.mjs:714:1

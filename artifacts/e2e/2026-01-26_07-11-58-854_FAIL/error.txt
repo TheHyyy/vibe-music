@@ -1,0 +1,4 @@
+Error: Failed to click first result add button
+    at searchAndAddResult (file:///Users/houyu/Desktop/my_project/echo-music/server/e2e/lan.e2e.mjs:366:23)
+    at async main (file:///Users/houyu/Desktop/my_project/echo-music/server/e2e/lan.e2e.mjs:548:19)
+    at async file:///Users/houyu/Desktop/my_project/echo-music/server/e2e/lan.e2e.mjs:691:1
