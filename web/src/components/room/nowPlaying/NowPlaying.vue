@@ -23,6 +23,7 @@ import { getPlayUrl, getLyric } from "@/api/songs";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
 import type { WebSocketClient } from "@/hooks/useWebSocket";
 import { parseLrc, findCurrentLineIndex, type LrcLine } from "@/lib/lrc";
+import { animalAvatarUrl } from "@/lib/utils";
 import Button from "@/components/ui/Button.vue";
 
 const actions = useRoomActions();
@@ -405,7 +406,7 @@ onUnmounted(() => {
             class="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-xs text-white/50 w-fit backdrop-blur-md"
           >
             <img
-              :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${nowPlaying.requestedBy.id}`"
+              :src="animalAvatarUrl(nowPlaying.requestedBy.id)"
               class="h-5 w-5 rounded-full bg-white/10"
             />
             <span>Requested by {{ nowPlaying.requestedBy.displayName }}</span>

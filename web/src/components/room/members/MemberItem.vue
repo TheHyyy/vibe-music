@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { UserX } from "lucide-vue-next";
 import type { UserSummary } from "@/types/api";
+import { animalAvatarUrl } from "@/lib/utils";
 import Button from "@/components/ui/Button.vue";
 
 const props = defineProps<{
@@ -20,7 +21,7 @@ function kick() {
   <div class="group flex items-center justify-between rounded-lg border border-transparent px-3 py-2 transition-all hover:border-white/5 hover:bg-white/5" v-memo="[member.id, member.role]">
     <div class="flex items-center gap-3 min-w-0">
       <img 
-        :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.id}`" 
+        :src="animalAvatarUrl(member.id)" 
         class="h-8 w-8 rounded-full bg-white/10"
       />
       <div class="min-w-0">
