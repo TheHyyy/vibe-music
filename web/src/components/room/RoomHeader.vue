@@ -14,12 +14,50 @@ const members = useRoomSelector((s) => s.members);
 
 const roleLabel = computed(() => currentUser.value?.role || "MEMBER");
 
-async function copyInvite() {
+async function copyText(text: string) {
+  try {
+    if (window.isSecureContext && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    void 0;
+  }
+
+  try {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.setAttribute("readonly", "");
+    el.style.position = "fixed";
+    el.style.top = "0";
+    el.style.left = "0";
+    el.style.opacity = "0";
+    document.body.appendChild(el);
+    el.focus();
+    el.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(el);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+async function copyRoomCode() {
+  const code = room.value?.code;
+  if (!code) return;
+  const ok = await copyText(code);
+  if (ok) ElMessage.success("已复制房间码");
+  else ElMessage.error("复制失败，请手动选择复制");
+}
+
+async function copyInviteLink() {
   const code = room.value?.code;
   if (!code) return;
   const url = `${window.location.origin}/?code=${code}`;
-  await navigator.clipboard.writeText(url);
-  ElMessage.success("已复制邀请链接");
+  const ok = await copyText(url);
+  if (ok) ElMessage.success("已复制邀请链接");
+  else ElMessage.error("复制失败，请手动选择复制");
 }
 
 function backHome() {
@@ -53,7 +91,7 @@ function backHome() {
             <button
               class="group flex items-center gap-1 hover:text-white transition-colors"
               type="button"
-              @click="copyInvite"
+              @click="copyRoomCode"
             >
               <span data-testid="room-code" class="font-mono"
                 >#{{ room?.code || "------" }}</span
@@ -75,7 +113,7 @@ function backHome() {
           variant="ghost"
           size="sm"
           class="hidden sm:inline-flex"
-          @click="copyInvite"
+          @click="copyInviteLink"
         >
           <Copy class="mr-2 h-4 w-4" />
           邀请

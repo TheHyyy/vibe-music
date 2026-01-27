@@ -39,10 +39,19 @@ const {
   async () => {
     try {
       return await getRoomState(roomId.value);
-    } catch (e) {
-      // Manually handle 401 if swrv doesn't update error ref immediately
-      if ((e as any).response?.status === 401) {
+    } catch (e: any) {
+      console.error("[RoomPage] Fetch state error:", e);
+      // Manually handle 401/400/403 if swrv doesn't update error ref immediately
+      if (
+        e.response?.status === 401 ||
+        e.response?.status === 400 ||
+        e.response?.status === 403
+      ) {
         showJoinDialog.value = true;
+      } else if (e.response?.status === 404) {
+        ElMessage.error("房间不存在");
+        actions.resetRoom();
+        router.replace({ path: "/" });
       }
       throw e;
     }
@@ -58,8 +67,12 @@ watch(
   () => stateError.value,
   (err) => {
     if (err) {
-      // Check for 401 (Unauthorized)
-      if (err.response?.status === 401) {
+      // Check for 401/400/403
+      if (
+        err.response?.status === 401 ||
+        err.response?.status === 400 ||
+        err.response?.status === 403
+      ) {
         showJoinDialog.value = true;
         return;
       }
@@ -78,6 +91,7 @@ watch(
 function onJoinSuccess() {
   showJoinDialog.value = false;
   reloadState();
+  wsClient.disconnect();
   connect();
 }
 

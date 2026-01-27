@@ -22,12 +22,44 @@ export interface RoomRecord {
 export const rooms = new Map<string, RoomRecord>();
 export const roomIdByCode = new Map<string, string>();
 
+// Store pending leave timers: `${roomId}:${userId}` -> NodeJS.Timeout
+const pendingLeaves = new Map<string, NodeJS.Timeout>();
+
+export function scheduleLeave(
+  roomId: string,
+  userId: string,
+  callback: () => void,
+) {
+  const key = `${roomId}:${userId}`;
+  if (pendingLeaves.has(key)) {
+    clearTimeout(pendingLeaves.get(key));
+  }
+
+  // Wait 5 seconds before actually removing
+  const timer = setTimeout(() => {
+    pendingLeaves.delete(key);
+    callback();
+  }, 5000);
+
+  pendingLeaves.set(key, timer);
+}
+
+export function cancelLeave(roomId: string, userId: string) {
+  const key = `${roomId}:${userId}`;
+  if (pendingLeaves.has(key)) {
+    clearTimeout(pendingLeaves.get(key));
+    pendingLeaves.delete(key);
+    return true; // Successfully canceled
+  }
+  return false;
+}
+
 export function defaultSettings(): RoomSettings {
   return {
     allowAnonymous: true,
     allowDuplicateSongs: false,
-    maxQueuedPerUser: 3,
-    skipVoteThreshold: 3,
+    maxQueuedPerUser: 10,
+    skipVoteThreshold: 1,
   };
 }
 
@@ -44,6 +76,7 @@ export function createRoom(input: {
     id: roomId,
     name: input.name,
     code,
+    hostId: input.host.id,
     settings: defaultSettings(),
   };
   const host: UserSummary = {
@@ -82,7 +115,7 @@ export function joinRoom(input: {
   const member: UserSummary = {
     id: input.user.id,
     displayName: input.user.displayName,
-    role: "MEMBER",
+    role: rec.room.hostId === input.user.id ? "HOST" : "MEMBER",
   };
   rec.members.set(member.id, member);
   return { roomId, member };
@@ -124,6 +157,7 @@ export function addQueueItem(
     song,
     requestedBy: user,
     voteScore: 0,
+    skipVotes: 0,
     createdAt: new Date().toISOString(),
   };
 
@@ -155,15 +189,33 @@ export function applyVote(
   if (!rec) throw new Error("房间不存在");
   const voteKey = `${roomId}:${itemId}:${userId}`;
   const prev = rec.votes.get(voteKey);
-  if (prev === type) return currentVoteScore(rec, itemId);
+  if (prev === type)
+    return {
+      score: currentVoteScore(rec, itemId),
+      skipCount: currentSkipCount(rec, itemId),
+    };
   rec.votes.set(voteKey, type);
+
   const score = currentVoteScore(rec, itemId);
+  const skipCount = currentSkipCount(rec, itemId);
+
+  // Update queue
   rec.queue = sortQueue(
     rec.queue.map((it) =>
-      it.id === itemId ? { ...it, voteScore: score } : it,
+      it.id === itemId ? { ...it, voteScore: score, skipVotes: skipCount } : it,
     ),
   );
-  return score;
+
+  // Update nowPlaying if matches
+  if (rec.nowPlaying?.id === itemId) {
+    rec.nowPlaying = {
+      ...rec.nowPlaying,
+      voteScore: score,
+      skipVotes: skipCount,
+    };
+  }
+
+  return { score, skipCount };
 }
 
 export function currentVoteScore(rec: RoomRecord, itemId: string) {
@@ -172,9 +224,17 @@ export function currentVoteScore(rec: RoomRecord, itemId: string) {
     if (!key.includes(`:${itemId}:`)) continue;
     if (v === "UP") score += 1;
     if (v === "DOWN") score -= 1;
-    if (v === "SKIP") score += 0;
   }
   return score;
+}
+
+export function currentSkipCount(rec: RoomRecord, itemId: string) {
+  let count = 0;
+  for (const [key, v] of rec.votes.entries()) {
+    if (!key.includes(`:${itemId}:`)) continue;
+    if (v === "SKIP") count += 1;
+  }
+  return count;
 }
 
 export function nextSong(roomId: string) {

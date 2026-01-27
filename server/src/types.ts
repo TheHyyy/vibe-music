@@ -17,6 +17,7 @@ export interface Room {
   id: string;
   name: string;
   code: string;
+  hostId: string;
   settings: RoomSettings;
 }
 
@@ -35,6 +36,7 @@ export interface QueueItem {
   song: Song;
   requestedBy: UserSummary;
   voteScore: number;
+  skipVotes: number;
   createdAt: string;
 }
 

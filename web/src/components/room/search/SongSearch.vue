@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from "vue";
+import { ref, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import { Search, Plus, Loader2, Disc3 } from "lucide-vue-next";
 import { searchSongs, getSystemConfig } from "@/api/songs";

@@ -17,7 +17,16 @@ const providers: MusicProvider[] =
     : [new NeteaseProvider(), ...(enableQQ ? [new QQProvider()] : [])];
 
 export async function searchMusic(query: string): Promise<Song[]> {
-  const promises = providers.map((p) => p.search(query));
+  // Wrap each provider search with a timeout
+  const promises = providers.map((p) => {
+    return Promise.race([
+      p.search(query),
+      new Promise<Song[]>((_, reject) =>
+        setTimeout(() => reject(new Error(`[${p.name}] Search timeout`)), 10000)
+      ),
+    ]);
+  });
+
   const results = await Promise.allSettled(promises);
 
   // 收集所有成功的数组
@@ -25,6 +34,8 @@ export async function searchMusic(query: string): Promise<Song[]> {
   results.forEach((r) => {
     if (r.status === "fulfilled") {
       songsLists.push(r.value);
+    } else {
+      console.warn(`[Search] Provider failed:`, r.reason);
     }
   });
 

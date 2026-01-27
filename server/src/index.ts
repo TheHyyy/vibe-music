@@ -11,6 +11,7 @@ import { signToken, verifyToken } from "./auth.js";
 import {
   addQueueItem,
   applyVote,
+  cancelLeave,
   createRoom,
   joinRoom,
   nextSong,
@@ -18,6 +19,7 @@ import {
   roomRole,
   roomStateForUser,
   rooms,
+  scheduleLeave,
   updatePlayback,
   updateSettings,
 } from "./store.js";
@@ -56,9 +58,19 @@ function parseBearer(auth?: string) {
 
 function authRoom(req: express.Request) {
   const token = parseBearer(req.headers.authorization);
-  if (!token) throw new Error("未登录");
-  const payload = verifyToken(token);
-  return payload;
+  console.log("[Auth] Header:", req.headers.authorization);
+  if (!token) {
+    console.error("[Auth] No token found");
+    throw new Error("未登录");
+  }
+  try {
+    const payload = verifyToken(token);
+    console.log("[Auth] Verified payload:", payload);
+    return payload;
+  } catch (e) {
+    console.error("[Auth] Verify failed:", e);
+    throw e;
+  }
 }
 
 function buildState(roomId: string, userId: string): RoomStatePayload {
@@ -142,7 +154,11 @@ app.get("/api/rooms/:roomId/state", (req, res) => {
     if (roomId !== req.params.roomId) throw new Error("无权访问");
     res.json(ok(buildState(roomId, userId)));
   } catch (e) {
-    res.status(401).json(err((e as Error).message));
+    const msg = (e as Error).message;
+    if (msg === "未登录") res.status(401).json(err(msg));
+    else if (msg === "无权访问") res.status(403).json(err(msg));
+    else if (msg === "房间不存在") res.status(404).json(err(msg));
+    else res.status(400).json(err(msg));
   }
 });
 
@@ -183,14 +199,37 @@ app.post("/api/rooms/:roomId/queue/:itemId/votes", (req, res) => {
     const input = z
       .object({ type: z.enum(["UP", "DOWN", "SKIP"]) })
       .parse(req.body);
-    const score = applyVote(roomId, userId, req.params.itemId, input.type);
-    io.to(roomId).emit("vote:update", {
-      itemId: req.params.itemId,
-      voteScore: score,
-    });
+    
+    const { score, skipCount } = applyVote(roomId, userId, req.params.itemId, input.type);
+    
+    // Broadcast updates
     const rec = rooms.get(roomId);
-    if (rec)
+    if (rec) {
+      io.to(roomId).emit("vote:update", {
+        itemId: req.params.itemId,
+        voteScore: score,
+      });
       io.to(roomId).emit("queue:update", { mode: "replace", queue: rec.queue });
+
+      // Check for automatic skip
+      if (
+        input.type === "SKIP" &&
+        rec.nowPlaying?.id === req.params.itemId &&
+        skipCount >= rec.room.settings.skipVoteThreshold
+      ) {
+        console.log(`[Vote] Skip threshold reached for room ${roomId}`);
+        const nowPlaying = nextSong(roomId);
+        io.to(roomId).emit("queue:update", { mode: "replace", queue: rec.queue });
+        broadcastRoomState(roomId);
+      } else if (rec.nowPlaying?.id === req.params.itemId) {
+        // If it was a vote on nowPlaying but didn't skip, we still need to sync nowPlaying state (skip votes)
+        // Since "room:state" is heavy, maybe we just rely on the next periodic sync or optimistically update?
+        // Actually, broadcastRoomState is fine or we can emit a smaller event.
+        // For now, let's just broadcast to be safe and consistent.
+        broadcastRoomState(roomId);
+      }
+    }
+    
     res.json(ok({ itemId: req.params.itemId, voteScore: score }));
   } catch (e) {
     res.status(400).json(err((e as Error).message));
@@ -220,10 +259,13 @@ app.patch("/api/rooms/:roomId/settings", (req, res) => {
 });
 
 app.post("/api/rooms/:roomId/admin/next", (req, res) => {
+  console.log("[API] Next song request for room:", req.params.roomId);
   try {
     const { userId, roomId } = authRoom(req);
+    console.log("[API] Next song auth passed for user:", userId);
     if (roomId !== req.params.roomId) throw new Error("无权访问");
     const role = roomRole(roomId, userId);
+    console.log("[API] User role:", role);
     if (role !== "HOST" && role !== "MODERATOR") throw new Error("无权限");
     const nowPlaying = nextSong(roomId);
     const rec = rooms.get(roomId);
@@ -232,7 +274,13 @@ app.post("/api/rooms/:roomId/admin/next", (req, res) => {
     broadcastRoomState(roomId);
     res.json(ok({ nowPlaying }));
   } catch (e) {
-    res.status(400).json(err((e as Error).message));
+    console.error("[API] Next song failed:", e);
+    const msg = (e as Error).message;
+    if (msg === "未登录") res.status(401).json(err(msg));
+    else if (msg === "无权访问" || msg === "无权限")
+      res.status(403).json(err(msg));
+    else if (msg === "房间不存在") res.status(404).json(err(msg));
+    else res.status(400).json(err(msg));
   }
 });
 
@@ -350,6 +398,15 @@ io.on("connection", (socket) => {
         const userId = (socket.data as any).userId as string;
         const tokenRoomId = (socket.data as any).roomId as string;
         if (tokenRoomId !== body.roomId) throw new Error("无权加入");
+
+        // Cancel any pending leave timer for this user
+        const wasScheduled = cancelLeave(body.roomId, userId);
+        if (wasScheduled) {
+          console.log(
+            `[Join] Canceled pending leave for user ${userId} in room ${body.roomId}`,
+          );
+        }
+
         socket.join(body.roomId);
         ack?.(ok(buildState(body.roomId, userId)));
         broadcastRoomState(body.roomId);
@@ -364,8 +421,20 @@ io.on("connection", (socket) => {
       const userId = (socket.data as any).userId;
       const roomId = (socket.data as any).roomId;
       if (userId && roomId) {
-        removeMember(roomId, userId);
-        broadcastRoomState(roomId);
+        console.log(
+          `[Disconnect] User ${userId} disconnected from room ${roomId}, scheduling removal...`,
+        );
+        scheduleLeave(roomId, userId, () => {
+          console.log(
+            `[Disconnect] Removing user ${userId} from room ${roomId} after timeout`,
+          );
+          try {
+            removeMember(roomId, userId);
+            broadcastRoomState(roomId);
+          } catch (e) {
+            console.error(`[Disconnect] Failed to remove member: ${e}`);
+          }
+        });
       }
     } catch (e) {
       console.error("disconnect error", e);
@@ -399,11 +468,14 @@ io.on("connection", (socket) => {
 
 async function broadcastRoomState(roomId: string) {
   const sockets = await io.in(roomId).fetchSockets();
+  console.log(`[Broadcast] Room ${roomId} has ${sockets.length} sockets`);
   for (const s of sockets) {
     const userId = (s.data as any).userId as string;
     try {
+      console.log(`[Broadcast] Sending state to user ${userId}`);
       s.emit("room:state", buildState(roomId, userId));
-    } catch {
+    } catch (e) {
+      console.error(`[Broadcast] Failed to send state to user ${userId}:`, e);
       void 0;
     }
   }

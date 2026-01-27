@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { ElMessage } from "element-plus";
-import { ThumbsUp, ThumbsDown, SkipForward, Disc3 } from "lucide-vue-next";
+import { ThumbsUp, ThumbsDown, Disc3 } from "lucide-vue-next";
 import type { QueueItem } from "@/types/api";
 import { vote as voteApi } from "@/api/rooms";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
@@ -13,15 +13,14 @@ const actions = useRoomActions();
 const roomId = useRoomSelector((s) => s.room?.id);
 const actionLoading = useRoomSelector((s) => s.actionLoading);
 
-function key(type: "UP" | "DOWN" | "SKIP") {
+function key(type: "UP" | "DOWN") {
   return `vote:${props.item.id}:${type}`;
 }
 
 const upLoading = computed(() => !!actionLoading.value[key("UP")]);
 const downLoading = computed(() => !!actionLoading.value[key("DOWN")]);
-const skipLoading = computed(() => !!actionLoading.value[key("SKIP")]);
 
-async function vote(type: "UP" | "DOWN" | "SKIP") {
+async function vote(type: "UP" | "DOWN") {
   if (!roomId.value) return;
   const k = key(type);
   actions.setActionLoading(k, true);
@@ -38,18 +37,33 @@ async function vote(type: "UP" | "DOWN" | "SKIP") {
 </script>
 
 <template>
-  <div class="group relative flex items-center gap-3 rounded-lg border border-white/5 bg-slate-900/50 p-2 transition-all hover:bg-slate-900/80" v-memo="[item.id, item.voteScore]" data-testid="queue-item">
+  <div
+    class="group relative flex items-center gap-3 rounded-lg border border-white/5 bg-slate-900/50 p-2 transition-all hover:bg-slate-900/80"
+    data-testid="queue-item"
+  >
     <!-- Cover -->
-    <div class="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-800">
-      <img v-if="item.song.coverUrl" :src="item.song.coverUrl" class="h-full w-full object-cover" loading="lazy" />
-      <div v-else class="flex h-full w-full items-center justify-center text-slate-600">
+    <div
+      class="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-slate-800"
+    >
+      <img
+        v-if="item.song.coverUrl"
+        :src="item.song.coverUrl"
+        class="h-full w-full object-cover"
+        loading="lazy"
+      />
+      <div
+        v-else
+        class="flex h-full w-full items-center justify-center text-slate-600"
+      >
         <Disc3 class="h-6 w-6" />
       </div>
     </div>
 
     <!-- Info -->
     <div class="min-w-0 flex-1">
-      <div class="truncate text-sm font-medium text-slate-200 group-hover:text-white">
+      <div
+        class="truncate text-sm font-medium text-slate-200 group-hover:text-white"
+      >
         {{ item.song.title }}
       </div>
       <div class="truncate text-xs text-slate-500">
@@ -60,22 +74,35 @@ async function vote(type: "UP" | "DOWN" | "SKIP") {
 
     <!-- Vote Score -->
     <div class="flex flex-col items-end gap-1">
-      <div class="flex items-center gap-1 rounded bg-white/5 px-1.5 py-0.5 text-xs font-bold" :class="item.voteScore >= 0 ? 'text-emerald-400' : 'text-red-400'">
-        {{ item.voteScore > 0 ? '+' : '' }}{{ item.voteScore }}
+      <div
+        class="flex items-center gap-1 rounded bg-white/5 px-1.5 py-0.5 text-xs font-bold"
+        :class="item.voteScore >= 0 ? 'text-emerald-400' : 'text-red-400'"
+      >
+        {{ item.voteScore > 0 ? "+" : "" }}{{ item.voteScore }}
       </div>
     </div>
 
     <!-- Hover Actions (Overlay) -->
-    <div class="absolute inset-0 flex items-center justify-end gap-1 rounded-lg bg-slate-950/80 px-2 opacity-0 transition-opacity group-hover:opacity-100 backdrop-blur-sm">
-      <Button size="icon" variant="ghost" class="h-8 w-8 text-emerald-400 hover:bg-emerald-500/20" :loading="upLoading" @click="vote('UP')">
+    <div
+      class="absolute inset-0 flex items-center justify-end gap-1 rounded-lg bg-slate-950/80 px-2 opacity-0 transition-opacity group-hover:opacity-100 backdrop-blur-sm"
+    >
+      <Button
+        size="icon"
+        variant="ghost"
+        class="h-8 w-8 text-emerald-400 hover:bg-emerald-500/20"
+        :loading="upLoading"
+        @click="vote('UP')"
+      >
         <ThumbsUp class="h-4 w-4" />
       </Button>
-      <Button size="icon" variant="ghost" class="h-8 w-8 text-red-400 hover:bg-red-500/20" :loading="downLoading" @click="vote('DOWN')">
+      <Button
+        size="icon"
+        variant="ghost"
+        class="h-8 w-8 text-red-400 hover:bg-red-500/20"
+        :loading="downLoading"
+        @click="vote('DOWN')"
+      >
         <ThumbsDown class="h-4 w-4" />
-      </Button>
-      <div class="mx-1 h-4 w-px bg-white/10"></div>
-      <Button size="icon" variant="ghost" class="h-8 w-8 text-slate-400 hover:text-white" :loading="skipLoading" @click="vote('SKIP')">
-        <SkipForward class="h-4 w-4" />
       </Button>
     </div>
   </div>

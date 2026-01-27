@@ -35,6 +35,7 @@ export interface QueueItem {
   song: Song;
   requestedBy: UserSummary;
   voteScore: number;
+  skipVotes: number;
   createdAt: string;
 }
 

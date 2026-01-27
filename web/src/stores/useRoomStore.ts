@@ -91,6 +91,7 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
         song,
         requestedBy: state.currentUser,
         voteScore: 0,
+        skipVotes: 0,
         createdAt: new Date().toISOString(),
       };
       // 如果当前没有播放且队列为空，也许它应该显示在 nowPlaying？

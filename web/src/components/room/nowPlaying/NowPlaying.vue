@@ -18,7 +18,7 @@ import {
   VolumeX,
   Mic2,
 } from "lucide-vue-next";
-import { adminNext } from "@/api/rooms";
+import { adminNext, vote } from "@/api/rooms";
 import { getPlayUrl, getLyric } from "@/api/songs";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
 import type { WebSocketClient } from "@/hooks/useWebSocket";
@@ -30,6 +30,7 @@ const nowPlaying = useRoomSelector((s) => s.nowPlaying);
 const playback = useRoomSelector((s) => s.playback);
 const role = useRoomSelector((s) => s.currentUser?.role);
 const roomId = useRoomSelector((s) => s.room?.id);
+const roomSettings = useRoomSelector((s) => s.room?.settings);
 const actionLoading = useRoomSelector((s) => s.actionLoading);
 const socketClient = inject<WebSocketClient>("socketClient");
 
@@ -61,6 +62,7 @@ const canAdmin = computed(
 );
 const nextLoadingKey = computed(() => `admin:next:${roomId.value || ""}`);
 const nextLoading = computed(() => !!actionLoading.value[nextLoadingKey.value]);
+const voteSkipLoading = ref(false);
 
 // Format seconds to MM:SS
 function formatTime(seconds: number) {
@@ -158,13 +160,6 @@ function togglePlay() {
   }
 }
 
-function handleProgressClick(e: MouseEvent) {
-  if (!canAdmin.value || !audioRef.value) return;
-  const rect = (e.target as HTMLElement).getBoundingClientRect();
-  const pos = (e.clientX - rect.left) / rect.width;
-  audioRef.value.currentTime = pos * (audioRef.value.duration || 0);
-}
-
 function toggleMute() {
   if (!audioRef.value) return;
   if (isMuted.value) {
@@ -260,6 +255,20 @@ async function nextSong() {
     ElMessage.error((e as Error).message);
   } finally {
     actions.setActionLoading(nextLoadingKey.value, false);
+  }
+}
+
+async function voteSkip() {
+  if (!roomId.value || !nowPlaying.value) return;
+  voteSkipLoading.value = true;
+  try {
+    const res = await vote(roomId.value, nowPlaying.value.id, { type: "SKIP" });
+    if (!res.ok) throw new Error((res as any).error.message);
+    ElMessage.success("已投票跳过");
+  } catch (e) {
+    ElMessage.error((e as Error).message);
+  } finally {
+    voteSkipLoading.value = false;
   }
 }
 
@@ -500,6 +509,20 @@ onUnmounted(() => {
               >
                 <SkipForward class="mr-2 h-4 w-4" />
                 切歌
+              </Button>
+
+              <Button
+                v-if="!canAdmin && nowPlaying"
+                variant="secondary"
+                size="sm"
+                :loading="voteSkipLoading"
+                data-testid="nowplaying-vote-skip"
+                @click="voteSkip"
+              >
+                <SkipForward class="mr-2 h-4 w-4" />
+                跳过 ({{ nowPlaying.skipVotes || 0 }}/{{
+                  roomSettings?.skipVoteThreshold || 1
+                }})
               </Button>
             </div>
           </div>
