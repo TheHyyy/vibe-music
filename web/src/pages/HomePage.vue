@@ -2,14 +2,7 @@
 import { ref, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import {
-  Music2,
-  Radio,
-  User,
-  Hash,
-  Sparkles,
-  ArrowRight,
-} from "lucide-vue-next";
+import { Music2, Radio, User, Hash, Sparkles } from "lucide-vue-next";
 import { createRoom, joinRoom } from "@/api/rooms";
 import { useRoomActions } from "@/stores/useRoomStore";
 import Button from "@/components/ui/Button.vue";
@@ -20,10 +13,10 @@ const actions = useRoomActions();
 
 const mode = ref<"create" | "join" | null>(null);
 const loading = ref(false);
-const lastRoomId = ref(localStorage.getItem("echo_music_last_room_id") || "");
+localStorage.removeItem("echo_music_last_room_id");
 
 const createForm = reactive({
-  name: "非七人组 Music",
+  name: "FriendMix Music",
   displayName: localStorage.getItem("echo_username") || "Host",
 });
 
@@ -50,8 +43,6 @@ async function onCreate() {
     if (!res.ok) throw new Error((res as any).error.message);
     actions.setToken(res.data.token);
     actions.hydrate(res.data.state);
-    localStorage.setItem("echo_music_last_room_id", res.data.roomId);
-    lastRoomId.value = res.data.roomId;
     await router.push({ name: "room", params: { roomId: res.data.roomId } });
   } catch (e) {
     ElMessage.error((e as Error).message);
@@ -74,24 +65,12 @@ async function onJoin() {
     if (!res.ok) throw new Error((res as any).error.message);
     actions.setToken(res.data.token);
     actions.hydrate(res.data.state);
-    localStorage.setItem("echo_music_last_room_id", res.data.roomId);
-    lastRoomId.value = res.data.roomId;
     await router.push({ name: "room", params: { roomId: res.data.roomId } });
   } catch (e) {
     ElMessage.error((e as Error).message);
   } finally {
     loading.value = false;
   }
-}
-
-async function onResume() {
-  const token = localStorage.getItem("echo_music_token");
-  if (!token || !lastRoomId.value) {
-    localStorage.removeItem("echo_music_last_room_id");
-    lastRoomId.value = "";
-    return;
-  }
-  await router.push({ name: "room", params: { roomId: lastRoomId.value } });
 }
 </script>
 
@@ -118,9 +97,12 @@ async function onResume() {
           </div>
         </div>
         <h1 class="text-4xl font-bold tracking-tight text-white drop-shadow-sm">
-          非七人组 Music
+          FriendMix Music
         </h1>
         <p class="mt-2 text-slate-300">与挚友实时同步的音乐空间</p>
+        <div class="flex items-center justify-center my-4">
+          <img src="/firend.png" style="height: 200px; width: auto" />
+        </div>
       </div>
 
       <!-- Action Cards (Transition) -->
@@ -135,22 +117,6 @@ async function onResume() {
       >
         <!-- Initial Selection -->
         <div v-if="!mode" class="grid gap-4">
-          <button
-            v-if="lastRoomId"
-            class="group relative flex w-full items-center gap-4 rounded-xl border border-white/10 bg-indigo-600/20 p-6 text-left shadow-lg backdrop-blur-md transition-all hover:bg-indigo-600/30 hover:scale-[1.02] active:scale-[0.98]"
-            @click="onResume"
-          >
-            <div
-              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-white shadow-lg shadow-indigo-500/30"
-            >
-              <ArrowRight class="h-6 w-6" />
-            </div>
-            <div>
-              <div class="text-lg font-semibold text-white">回到上次房间</div>
-              <div class="text-sm text-indigo-200">继续刚才的派对</div>
-            </div>
-          </button>
-
           <button
             data-testid="home-create-card"
             class="group relative flex w-full items-center gap-4 rounded-xl border border-white/10 bg-slate-900/50 p-6 text-left shadow-lg backdrop-blur-md transition-all hover:bg-slate-900/70 hover:scale-[1.02] active:scale-[0.98]"
@@ -282,7 +248,7 @@ async function onResume() {
     </div>
 
     <div class="absolute bottom-6 text-xs text-white/20">
-      非七人组 Music · v0.1.0
+      FriendMix Music · v0.1.0
     </div>
   </div>
 </template>
