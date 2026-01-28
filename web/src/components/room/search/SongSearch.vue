@@ -201,6 +201,7 @@ async function addSong(song: Song) {
                   :class="{
                     'bg-red-500/20 text-red-400': s.source === 'NETEASE',
                     'bg-green-500/20 text-green-400': s.source === 'QQ',
+                    'bg-yellow-500/20 text-yellow-400': s.source === 'KUWO',
                     'bg-slate-500/20 text-slate-400': s.source === 'MOCK',
                   }"
                 >

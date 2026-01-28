@@ -1,5 +1,6 @@
 import { NeteaseProvider } from "./netease.js";
 import { QQProvider } from "./qq.js";
+import { KuwoProvider } from "./kuwo.js";
 import { MockProvider } from "./mock.js";
 import type { MusicProvider } from "./types.js";
 import type { Song } from "../types.js";
@@ -14,7 +15,11 @@ const enableQQ = process.env.ENABLE_QQ_MUSIC === "true";
 const providers: MusicProvider[] =
   providerMode === "MOCK"
     ? [new MockProvider()]
-    : [new NeteaseProvider(), ...(enableQQ ? [new QQProvider()] : [])];
+    : [
+        new NeteaseProvider(),
+        new KuwoProvider(),
+        ...(enableQQ ? [new QQProvider()] : []),
+      ];
 
 export async function searchMusic(query: string, page = 1): Promise<Song[]> {
   // Wrap each provider search with a timeout
@@ -34,11 +39,14 @@ export async function searchMusic(query: string, page = 1): Promise<Song[]> {
 
   // 收集所有成功的数组
   const songsLists: Song[][] = [];
-  results.forEach((r) => {
+  results.forEach((r, index) => {
     if (r.status === "fulfilled") {
       songsLists.push(r.value);
     } else {
-      console.warn(`[Search] Provider failed:`, r.reason);
+      console.warn(
+        `[Search] Provider ${providers[index].name} failed:`,
+        r.reason,
+      );
     }
   });
 
