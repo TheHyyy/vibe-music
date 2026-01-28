@@ -23,7 +23,12 @@ import {
   updatePlayback,
   updateSettings,
 } from "./store.js";
-import { searchMusic, getPlayUrl, getLyric } from "./music/service.js";
+import {
+  searchMusic,
+  getPlayUrl,
+  getLyric,
+  getHotRecommendation,
+} from "./music/service.js";
 import type { ApiResult, RoomStatePayload, Song } from "./types.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -199,9 +204,14 @@ app.post("/api/rooms/:roomId/queue/:itemId/votes", (req, res) => {
     const input = z
       .object({ type: z.enum(["UP", "DOWN", "SKIP"]) })
       .parse(req.body);
-    
-    const { score, skipCount } = applyVote(roomId, userId, req.params.itemId, input.type);
-    
+
+    const { score, skipCount } = applyVote(
+      roomId,
+      userId,
+      req.params.itemId,
+      input.type,
+    );
+
     // Broadcast updates
     const rec = rooms.get(roomId);
     if (rec) {
@@ -219,7 +229,10 @@ app.post("/api/rooms/:roomId/queue/:itemId/votes", (req, res) => {
       ) {
         console.log(`[Vote] Skip threshold reached for room ${roomId}`);
         const nowPlaying = nextSong(roomId);
-        io.to(roomId).emit("queue:update", { mode: "replace", queue: rec.queue });
+        io.to(roomId).emit("queue:update", {
+          mode: "replace",
+          queue: rec.queue,
+        });
         broadcastRoomState(roomId);
       } else if (rec.nowPlaying?.id === req.params.itemId) {
         // If it was a vote on nowPlaying but didn't skip, we still need to sync nowPlaying state (skip votes)
@@ -229,7 +242,7 @@ app.post("/api/rooms/:roomId/queue/:itemId/votes", (req, res) => {
         broadcastRoomState(roomId);
       }
     }
-    
+
     res.json(ok({ itemId: req.params.itemId, voteScore: score }));
   } catch (e) {
     res.status(400).json(err((e as Error).message));
@@ -258,7 +271,13 @@ app.patch("/api/rooms/:roomId/settings", (req, res) => {
   }
 });
 
-app.post("/api/rooms/:roomId/admin/next", (req, res) => {
+const AUTOPLAY_USER = {
+  id: "autoplay-bot",
+  displayName: "自动点歌",
+  role: "MEMBER" as const,
+};
+
+app.post("/api/rooms/:roomId/admin/next", async (req, res) => {
   console.log("[API] Next song request for room:", req.params.roomId);
   try {
     const { userId, roomId } = authRoom(req);
@@ -267,8 +286,25 @@ app.post("/api/rooms/:roomId/admin/next", (req, res) => {
     const role = roomRole(roomId, userId);
     console.log("[API] User role:", role);
     if (role !== "HOST" && role !== "MODERATOR") throw new Error("无权限");
-    const nowPlaying = nextSong(roomId);
+
+    let nowPlaying = nextSong(roomId);
     const rec = rooms.get(roomId);
+
+    // Auto-play hot song if queue is empty
+    if (!nowPlaying && rec) {
+      console.log("[AdminNext] Queue empty, fetching hot song...");
+      const hotSong = await getHotRecommendation();
+      if (hotSong) {
+        console.log("[AdminNext] Found hot song:", hotSong.title);
+        // Use the virtual user for attribution
+        const item = addQueueItem(roomId, AUTOPLAY_USER, hotSong);
+        // addQueueItem sets nowPlaying if it was empty, so we don't need to call nextSong again
+        nowPlaying = item;
+      } else {
+        console.warn("[AdminNext] Failed to find hot song");
+      }
+    }
+
     if (rec)
       io.to(roomId).emit("queue:update", { mode: "replace", queue: rec.queue });
     broadcastRoomState(roomId);
@@ -281,6 +317,47 @@ app.post("/api/rooms/:roomId/admin/next", (req, res) => {
       res.status(403).json(err(msg));
     else if (msg === "房间不存在") res.status(404).json(err(msg));
     else res.status(400).json(err(msg));
+  }
+});
+
+app.post("/api/rooms/:roomId/ended", async (req, res) => {
+  try {
+    const { userId, roomId } = authRoom(req);
+    if (roomId !== req.params.roomId) throw new Error("无权访问");
+
+    const rec = rooms.get(roomId);
+    if (!rec) throw new Error("房间不存在");
+
+    const input = z.object({ songId: z.string() }).parse(req.body);
+
+    // Verify if the song requesting to end is actually the one playing
+    if (!rec.nowPlaying || rec.nowPlaying.id !== input.songId) {
+      // It might have been skipped already
+      res.json(ok({ skipped: false, reason: "Already skipped" }));
+      return;
+    }
+
+    // Perform next song logic (with auto-play fallback)
+    let nowPlaying = nextSong(roomId);
+
+    if (!nowPlaying) {
+      console.log("[Ended] Queue empty, fetching hot song...");
+      const hotSong = await getHotRecommendation();
+      if (hotSong) {
+        console.log("[Ended] Found hot song:", hotSong.title);
+        // Use the virtual user for attribution
+        const item = addQueueItem(roomId, AUTOPLAY_USER, hotSong);
+        nowPlaying = item;
+      } else {
+        console.warn("[Ended] Failed to find hot song");
+      }
+    }
+
+    io.to(roomId).emit("queue:update", { mode: "replace", queue: rec.queue });
+    broadcastRoomState(roomId);
+    res.json(ok({ nowPlaying }));
+  } catch (e) {
+    res.status(400).json(err((e as Error).message));
   }
 });
 
@@ -309,13 +386,14 @@ app.post("/api/rooms/:roomId/admin/kick", async (req, res) => {
 
 app.get("/api/songs/search", async (req, res) => {
   const q = String(req.query.q || "").trim();
+  const page = Number(req.query.page) || 1;
   if (!q) {
     res.json(ok([]));
     return;
   }
 
   try {
-    const items = await searchMusic(q);
+    const items = await searchMusic(q, page);
     res.json(ok(items));
   } catch (e) {
     res.status(500).json(err((e as Error).message));
@@ -410,6 +488,29 @@ io.on("connection", (socket) => {
         socket.join(body.roomId);
         ack?.(ok(buildState(body.roomId, userId)));
         broadcastRoomState(body.roomId);
+
+        // Check if room is empty and auto-play
+        const rec = rooms.get(body.roomId);
+        if (rec && !rec.nowPlaying && rec.queue.length === 0) {
+          console.log(
+            `[Join] Room ${body.roomId} is empty, triggering auto-play...`,
+          );
+          getHotRecommendation()
+            .then((hotSong) => {
+              // Re-check state inside async callback
+              const currentRec = rooms.get(body.roomId);
+              if (
+                hotSong &&
+                currentRec &&
+                !currentRec.nowPlaying &&
+                currentRec.queue.length === 0
+              ) {
+                addQueueItem(body.roomId, AUTOPLAY_USER, hotSong);
+                broadcastRoomState(body.roomId);
+              }
+            })
+            .catch((e) => console.error("[Join] Auto-play failed:", e));
+        }
       } catch (e) {
         ack?.(err((e as Error).message));
       }

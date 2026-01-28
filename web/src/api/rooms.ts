@@ -82,6 +82,17 @@ export async function adminNext(
   return res.data;
 }
 
+export async function reportEnded(
+  roomId: string,
+  songId: string,
+): Promise<ApiResult<{ nowPlaying?: QueueItem }>> {
+  const res = await http.post<ApiResult<{ nowPlaying?: QueueItem }>>(
+    `/api/rooms/${roomId}/ended`,
+    { songId },
+  );
+  return res.data;
+}
+
 export async function adminKick(
   roomId: string,
   userId: string,

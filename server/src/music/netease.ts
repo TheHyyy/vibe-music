@@ -14,12 +14,15 @@ export class NeteaseProvider implements MusicProvider {
     return c;
   }
 
-  async search(query: string): Promise<Song[]> {
+  async search(query: string, page = 1): Promise<Song[]> {
     try {
+      const limit = 10;
+      const offset = (page - 1) * limit;
       const res = await NeteaseCloudMusicApi.cloudsearch({
         keywords: query,
         type: 1, // 1: 单曲
-        limit: 10,
+        limit,
+        offset,
         cookie: this.cookie,
       });
 
@@ -36,6 +39,33 @@ export class NeteaseProvider implements MusicProvider {
       }));
     } catch (e) {
       console.error("Netease search error:", e);
+      return [];
+    }
+  }
+
+  async getHotSongs(): Promise<Song[]> {
+    try {
+      // 3778678 is the ID for "Netease Hot Songs"
+      const res = await NeteaseCloudMusicApi.playlist_track_all({
+        id: "3778678",
+        limit: 20,
+        offset: Math.floor(Math.random() * 50), // Randomize a bit
+        cookie: this.cookie,
+      });
+
+      if (res.status !== 200) return [];
+      const songs = (res.body.songs as any) || [];
+
+      return songs.map((s: any) => ({
+        id: `netease:${s.id}`,
+        title: s.name,
+        artist: s.ar?.map((a: any) => a.name).join(", ") || "Unknown",
+        durationSec: Math.floor((s.dt || 0) / 1000),
+        coverUrl: s.al?.picUrl,
+        source: "NETEASE",
+      }));
+    } catch (e) {
+      console.error("Netease getHotSongs error:", e);
       return [];
     }
   }

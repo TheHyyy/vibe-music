@@ -13,7 +13,7 @@ const form = reactive({
   allowAnonymous: true,
   allowDuplicateSongs: false,
   maxQueuedPerUser: 10,
-  skipVoteThreshold: 1,
+  skipVoteThreshold: 2,
 });
 
 watch(

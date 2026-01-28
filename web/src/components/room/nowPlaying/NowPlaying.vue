@@ -1,24 +1,8 @@
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  watch,
-  onMounted,
-  onUnmounted,
-  nextTick,
-  inject,
-} from "vue";
+import { computed, ref, watch, nextTick, inject } from "vue";
 import { ElMessage } from "element-plus";
-import {
-  SkipForward,
-  Disc3,
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Mic2,
-} from "lucide-vue-next";
-import { adminNext, vote } from "@/api/rooms";
+import { SkipForward, Disc3, Volume2, VolumeX, Mic2 } from "lucide-vue-next";
+import { adminNext, vote, reportEnded } from "@/api/rooms";
 import { getPlayUrl, getLyric } from "@/api/songs";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
 import type { WebSocketClient } from "@/hooks/useWebSocket";
@@ -152,15 +136,6 @@ watch(
   { deep: true, immediate: true },
 );
 
-function togglePlay() {
-  if (!audioRef.value || !canAdmin.value) return;
-  if (isPlaying.value) {
-    audioRef.value.pause();
-  } else {
-    audioRef.value.play();
-  }
-}
-
 function toggleMute() {
   if (!audioRef.value) return;
   if (isMuted.value) {
@@ -204,19 +179,30 @@ function onTimeUpdate() {
 
 function scrollToCurrentLine() {
   if (!lyricsContainerRef.value || currentLineIndex.value < 0) return;
-  const el = lyricsContainerRef.value.children[
-    currentLineIndex.value
-  ] as HTMLElement;
+  const container = lyricsContainerRef.value;
+  const el = container.children[currentLineIndex.value] as HTMLElement;
+
   if (el) {
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const containerHeight = container.clientHeight;
+    const elTop = el.offsetTop;
+    const elHeight = el.clientHeight;
+
+    container.scrollTo({
+      top: elTop - containerHeight / 2 + elHeight / 2,
+      behavior: "smooth",
+    });
   }
 }
 
-function onEnded() {
+async function onEnded() {
   isPlaying.value = false;
-  // If host, auto next
-  if (canAdmin.value && roomId.value) {
-    nextSong();
+  // Auto next for everyone (server validates)
+  if (roomId.value && nowPlaying.value) {
+    try {
+      await reportEnded(roomId.value, nowPlaying.value.id);
+    } catch (e) {
+      console.error("Auto-next failed:", e);
+    }
   }
 }
 
@@ -231,17 +217,27 @@ function emitPlayerUpdate(isPaused: boolean, currentTime: number) {
 
 function onPlay() {
   isPlaying.value = true;
-  emitPlayerUpdate(false, audioRef.value?.currentTime || 0);
 }
 
 function onPause() {
   isPlaying.value = false;
-  emitPlayerUpdate(true, audioRef.value?.currentTime || 0);
+  // Auto-resume logic: if host pauses (e.g. unplugging headphones), try to resume immediately
+  // because we removed the manual play/pause controls to avoid room-wide accidental pauses.
+  if (canAdmin.value && audioRef.value) {
+    const audio = audioRef.value;
+    setTimeout(() => {
+      audio.play().catch((e) => {
+        console.warn("Auto-resume failed:", e);
+        ElMessage.warning("播放已暂停，请检查音频设备");
+      });
+    }, 100);
+  }
 }
 
 function onSeeked() {
   if (audioRef.value) {
-    emitPlayerUpdate(audioRef.value.paused, audioRef.value.currentTime);
+    // Force isPaused to false to prevent accidental pauses from syncing
+    emitPlayerUpdate(false, audioRef.value.currentTime);
   }
 }
 
@@ -272,29 +268,6 @@ async function voteSkip() {
     voteSkipLoading.value = false;
   }
 }
-
-// Keyboard shortcuts
-function onKeydown(e: KeyboardEvent) {
-  if (
-    e.target instanceof HTMLInputElement ||
-    e.target instanceof HTMLTextAreaElement
-  )
-    return;
-  if (e.code === "Space") {
-    e.preventDefault();
-    if (canAdmin.value) {
-      togglePlay();
-    }
-  }
-}
-
-onMounted(() => {
-  window.addEventListener("keydown", onKeydown);
-});
-
-onUnmounted(() => {
-  window.removeEventListener("keydown", onKeydown);
-});
 </script>
 
 <template>
@@ -339,7 +312,7 @@ onUnmounted(() => {
         >
           <!-- Standard Cover View -->
           <div
-            class="group relative h-full w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20 shadow-xl"
+            class="group relative h-full w-full overflow-hidden rounded-full border border-white/10 bg-black/20 shadow-xl"
           >
             <img
               v-if="nowPlaying?.song.coverUrl"
@@ -355,22 +328,6 @@ onUnmounted(() => {
                 class="h-24 w-24"
                 :class="{ 'animate-spin-slow': isPlaying }"
               />
-            </div>
-
-            <!-- Hover Play Button -->
-            <div
-              v-if="canAdmin"
-              class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
-            >
-              <button
-                aria-label="播放/暂停"
-                data-testid="nowplaying-hover-toggle-play"
-                class="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-md transition-transform hover:scale-110"
-                @click="togglePlay"
-              >
-                <Pause v-if="isPlaying" class="h-8 w-8 text-white fill-white" />
-                <Play v-else class="ml-1 h-8 w-8 text-white fill-white" />
-              </button>
             </div>
           </div>
         </div>
@@ -488,19 +445,6 @@ onUnmounted(() => {
               </Button>
 
               <Button
-                v-if="nowPlaying && canAdmin"
-                variant="secondary"
-                size="icon"
-                class="h-10 w-10 rounded-full"
-                data-testid="nowplaying-toggle-play"
-                aria-label="播放/暂停"
-                @click="togglePlay"
-              >
-                <Pause v-if="isPlaying" class="h-5 w-5 fill-current" />
-                <Play v-else class="ml-1 h-5 w-5 fill-current" />
-              </Button>
-
-              <Button
                 v-if="canAdmin && nowPlaying"
                 variant="secondary"
                 size="sm"
@@ -522,7 +466,7 @@ onUnmounted(() => {
               >
                 <SkipForward class="mr-2 h-4 w-4" />
                 跳过 ({{ nowPlaying.skipVotes || 0 }}/{{
-                  roomSettings?.skipVoteThreshold || 1
+                  roomSettings?.skipVoteThreshold || 2
                 }})
               </Button>
             </div>
@@ -574,7 +518,7 @@ onUnmounted(() => {
 
           <div
             ref="lyricsContainerRef"
-            class="flex-1 overflow-y-auto scrollbar-hide text-center space-y-6 mask-image-gradient py-8"
+            class="relative flex-1 overflow-y-auto scrollbar-hide text-center space-y-6 mask-image-gradient py-8"
           >
             <div
               v-if="lyrics.length === 0"

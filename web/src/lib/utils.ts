@@ -44,6 +44,12 @@ export function animalAvatarUrl(seed: string) {
   const emoji = animals[Math.abs(h) % animals.length];
   const bg = palette[Math.abs(h >>> 8) % palette.length];
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" rx="48" fill="${bg}"/><foreignObject x="0" y="0" width="96" height="96"><div xmlns="http://www.w3.org/1999/xhtml" style="width:96px;height:96px;display:flex;align-items:center;justify-content:center;font-size:52px;line-height:1;font-family:system-ui,-apple-system,Segoe UI,Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji;">${emoji}</div></foreignObject></svg>`;
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+    <rect width="96" height="96" rx="48" fill="${bg}"/>
+    <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="48" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">${emoji}</text>
+  </svg>
+  `.trim();
+  
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }

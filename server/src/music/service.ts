@@ -16,13 +16,16 @@ const providers: MusicProvider[] =
     ? [new MockProvider()]
     : [new NeteaseProvider(), ...(enableQQ ? [new QQProvider()] : [])];
 
-export async function searchMusic(query: string): Promise<Song[]> {
+export async function searchMusic(query: string, page = 1): Promise<Song[]> {
   // Wrap each provider search with a timeout
   const promises = providers.map((p) => {
     return Promise.race([
-      p.search(query),
+      p.search(query, page),
       new Promise<Song[]>((_, reject) =>
-        setTimeout(() => reject(new Error(`[${p.name}] Search timeout`)), 10000)
+        setTimeout(
+          () => reject(new Error(`[${p.name}] Search timeout`)),
+          10000,
+        ),
       ),
     ]);
   });
@@ -67,4 +70,21 @@ export async function getLyric(id: string): Promise<string | null> {
   const provider = providers.find((p) => p.name === source.toUpperCase());
   if (!provider) return null;
   return provider.getLyric(id);
+}
+
+export async function getHotRecommendation(): Promise<Song | null> {
+  const provider = providers.find((p) => p.name === "NETEASE");
+  if (!provider) return null;
+
+  // Cast to any to access getHotSongs since it's not in the generic interface
+  // In a stricter typed env, we should update the interface or use type guards
+  if ("getHotSongs" in provider) {
+    const songs = await (provider as any).getHotSongs();
+    if (songs.length > 0) {
+      // Pick a random one from the batch
+      const randomIdx = Math.floor(Math.random() * songs.length);
+      return songs[randomIdx];
+    }
+  }
+  return null;
 }

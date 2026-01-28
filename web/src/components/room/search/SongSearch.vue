@@ -18,6 +18,8 @@ const searching = ref(false);
 const results = ref<Song[]>([]);
 const hasSearched = ref(false);
 const enableQQ = ref(false);
+const currentPage = ref(1);
+const hasMore = ref(true);
 
 onMounted(async () => {
   try {
@@ -33,19 +35,40 @@ onMounted(async () => {
 const addLoadingKey = (id: string) => `queue:add:${id}`;
 const isAdding = (id: string) => !!actionLoading.value[addLoadingKey(id)];
 
-async function doSearch() {
+async function doSearch(loadMore = false) {
   if (!q.value.trim()) return;
+
+  if (!loadMore) {
+    results.value = [];
+    currentPage.value = 1;
+    hasMore.value = true;
+  }
+
   searching.value = true;
   hasSearched.value = true;
   try {
-    const res = await searchSongs(q.value.trim());
+    const res = await searchSongs(q.value.trim(), currentPage.value);
     if (!res.ok) throw new Error((res as any).error.message);
-    results.value = res.data;
+
+    if (res.data.length < 10) {
+      hasMore.value = false;
+    }
+
+    if (loadMore) {
+      results.value.push(...res.data);
+    } else {
+      results.value = res.data;
+    }
   } catch (e) {
     ElMessage.error((e as Error).message);
   } finally {
     searching.value = false;
   }
+}
+
+function onLoadMore() {
+  currentPage.value++;
+  doSearch(true);
 }
 
 async function addSong(song: Song) {
@@ -118,7 +141,7 @@ async function addSong(song: Song) {
         class="mt-3 max-h-[400px] min-h-[100px] overflow-y-auto scrollbar-thin"
       >
         <div
-          v-if="searching"
+          v-if="searching && results.length === 0"
           class="flex h-32 items-center justify-center text-slate-400"
         >
           <Loader2 class="h-6 w-6 animate-spin" />
@@ -197,6 +220,20 @@ async function addSong(song: Song) {
               @click="addSong(s)"
             >
               <Plus class="h-4 w-4" />
+            </Button>
+          </div>
+
+          <!-- Load More -->
+          <div v-if="results.length > 0 && hasMore" class="pt-2 text-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              class="w-full text-xs text-slate-400 hover:bg-white/5 hover:text-white"
+              :loading="searching"
+              :disabled="searching"
+              @click="onLoadMore"
+            >
+              {{ searching ? "加载中..." : "加载更多" }}
             </Button>
           </div>
         </div>

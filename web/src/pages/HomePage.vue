@@ -16,7 +16,7 @@ const loading = ref(false);
 localStorage.removeItem("echo_music_last_room_id");
 
 const createForm = reactive({
-  name: "FriendMix Music",
+  name: "六人组 Music",
   displayName: localStorage.getItem("echo_username") || "Host",
 });
 
@@ -97,7 +97,7 @@ async function onJoin() {
           </div>
         </div>
         <h1 class="text-4xl font-bold tracking-tight text-white drop-shadow-sm">
-          FriendMix Music
+          六人组 Music
         </h1>
         <p class="mt-2 text-slate-300">与挚友实时同步的音乐空间</p>
         <div class="flex items-center justify-center my-4">
@@ -248,7 +248,7 @@ async function onJoin() {
     </div>
 
     <div class="absolute bottom-6 text-xs text-white/20">
-      FriendMix Music · v0.1.0
+      六人组 Music · v0.1.0
     </div>
   </div>
 </template>

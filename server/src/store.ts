@@ -59,7 +59,7 @@ export function defaultSettings(): RoomSettings {
     allowAnonymous: true,
     allowDuplicateSongs: false,
     maxQueuedPerUser: 10,
-    skipVoteThreshold: 1,
+    skipVoteThreshold: 2,
   };
 }
 
