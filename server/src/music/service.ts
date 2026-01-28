@@ -1,6 +1,7 @@
 import { NeteaseProvider } from "./netease.js";
 import { QQProvider } from "./qq.js";
 import { KuwoProvider } from "./kuwo.js";
+import { MiguProvider } from "./migu.js";
 import { MockProvider } from "./mock.js";
 import type { MusicProvider } from "./types.js";
 import type { Song } from "../types.js";
@@ -18,6 +19,7 @@ const providers: MusicProvider[] =
     : [
         new NeteaseProvider(),
         new KuwoProvider(),
+        new MiguProvider(),
         ...(enableQQ ? [new QQProvider()] : []),
       ];
 
