@@ -26,7 +26,7 @@ export interface Song {
   artist?: string;
   durationSec?: number;
   coverUrl?: string;
-  source: "MOCK" | "NETEASE" | "QQ" | "KUWO" | "MIGU" | "THIRD_PARTY";
+  source: "MOCK" | "NETEASE" | "QQ" | "MIGU" | "THIRD_PARTY";
 }
 
 export interface QueueItem {
