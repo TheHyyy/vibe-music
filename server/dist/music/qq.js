@@ -1,12 +1,24 @@
 // @ts-ignore
 import qq from "qq-music-api";
+// 如果配置了 QQ_COOKIE，则设置全局 Cookie
+if (process.env.QQ_COOKIE) {
+    try {
+        qq.setCookie(process.env.QQ_COOKIE);
+        console.log("[QQ] Cookie set from env");
+    }
+    catch (e) {
+        console.error("[QQ] Failed to set cookie:", e);
+    }
+}
 export class QQProvider {
     name = "QQ";
     async search(query) {
         try {
             // 使用 qq-music-api 的搜索接口
             const res = await qq.api("search", { key: query, pageSize: 10 });
-            const list = res?.data?.list || [];
+            // qq-music-api 返回结构调整：部分版本直接返回 list，部分返回 data.list
+            // @ts-ignore
+            const list = res?.list || res?.data?.list || [];
             return list.map((s) => ({
                 id: `qq:${s.songmid}`,
                 title: s.songname,
@@ -30,7 +42,7 @@ export class QQProvider {
         }
         catch (e) {
             console.error("QQ getPlayUrl error:", e);
-            return null;
+            throw e; // Rethrow to let the caller handle it (and send to client)
         }
     }
     async getLyric(id) {
