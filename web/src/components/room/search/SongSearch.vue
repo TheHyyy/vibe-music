@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { ElMessage } from "element-plus";
-import { Search, Plus, Loader2, Disc3 } from "lucide-vue-next";
+import { Search, Plus, Loader2, Disc3, Music2, Heart } from "lucide-vue-next";
 import { searchSongs, getSystemConfig } from "@/api/songs";
 import { requestSong } from "@/api/rooms";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
 import type { Song } from "@/types/api";
 import Input from "@/components/ui/Input.vue";
 import Button from "@/components/ui/Button.vue";
+import { useFavorites } from "@/composables/useFavorites";
+
+const props = defineProps<{
+  stripped?: boolean;
+}>();
 
 const actions = useRoomActions();
 const roomId = useRoomSelector((s) => s.room?.id);
 const actionLoading = useRoomSelector((s) => s.actionLoading);
+const { isFavorite, toggleFavorite } = useFavorites();
 
 const q = ref("");
 const searching = ref(false);
@@ -100,16 +106,17 @@ async function addSong(song: Song) {
 </script>
 
 <template>
-  <div class="glass flex flex-col rounded-2xl">
-    <div class="border-b border-white/5 px-4 py-3">
-      <div class="flex items-center justify-between">
-        <div>
-          <h3 class="font-semibold text-white">点歌台</h3>
-          <p class="text-xs text-slate-400">支持网易云</p>
-        </div>
-        <div class="rounded bg-white/5 px-2 py-1 text-[10px] text-slate-400">
-          Enter 搜索
-        </div>
+  <div
+    :class="
+      stripped
+        ? 'flex flex-col h-full'
+        : 'glass flex flex-col rounded-2xl h-full'
+    "
+  >
+    <div v-if="!stripped" class="border-b border-white/5 px-4 py-3 shrink-0">
+      <div class="flex items-center gap-2">
+        <Music2 class="h-4 w-4 text-slate-400" />
+        <h3 class="font-semibold text-white">点歌台</h3>
       </div>
     </div>
 
@@ -212,16 +219,33 @@ async function addSong(song: Song) {
             </div>
 
             <!-- Action (Mobile/Desktop consistent) -->
-            <Button
-              size="icon"
-              variant="ghost"
-              class="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100"
-              :loading="isAdding(s.id)"
-              data-testid="song-result-add"
-              @click="addSong(s)"
-            >
-              <Plus class="h-4 w-4" />
-            </Button>
+            <div class="flex items-center gap-1">
+              <button
+                class="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center text-slate-400 hover:bg-white/10 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                :class="{
+                  'text-rose-500 hover:text-rose-400 opacity-100': isFavorite(
+                    s.id,
+                  ),
+                }"
+                @click.stop="toggleFavorite(s)"
+                title="收藏"
+              >
+                <Heart
+                  class="h-4 w-4"
+                  :class="{ 'fill-current': isFavorite(s.id) }"
+                />
+              </button>
+              <Button
+                size="icon"
+                variant="ghost"
+                class="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100"
+                :loading="isAdding(s.id)"
+                data-testid="song-result-add"
+                @click="addSong(s)"
+              >
+                <Plus class="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           <!-- Load More -->

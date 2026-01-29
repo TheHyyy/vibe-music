@@ -156,6 +156,9 @@ function mergeQueue(
   const tempItems = currentQueue.filter((i) => i.id.startsWith("temp-"));
 
   // 3. 过滤掉那些“已经在服务器数据中出现”的 Temp Items
+  // 注意：这里需要更严格的判断，因为不同用户点同一首歌是允许的（如果设置允许），
+  // 但对于"自己刚刚点的这首"，我们希望通过 song.id 来去重。
+  // 不过为了简单起见，如果服务器已经有了这首歌，我们就认为本地的 temp 可以退休了。
   const remainingTempItems = tempItems.filter(
     (i) => !serverSongIds.has(i.song.id),
   );

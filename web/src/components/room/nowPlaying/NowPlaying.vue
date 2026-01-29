@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, inject } from "vue";
 import { ElMessage } from "element-plus";
-import { SkipForward, Disc3, Volume2, VolumeX, Mic2 } from "lucide-vue-next";
+import { SkipForward, Disc3, Volume2, VolumeX, Mic2, Heart } from "lucide-vue-next";
 import { adminNext, vote, reportEnded } from "@/api/rooms";
 import { getPlayUrl, getLyric } from "@/api/songs";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
@@ -9,6 +9,7 @@ import type { WebSocketClient } from "@/hooks/useWebSocket";
 import { parseLrc, findCurrentLineIndex, type LrcLine } from "@/lib/lrc";
 import { animalAvatarUrl } from "@/lib/utils";
 import Button from "@/components/ui/Button.vue";
+import { useFavorites } from "@/composables/useFavorites";
 
 const actions = useRoomActions();
 const nowPlaying = useRoomSelector((s) => s.nowPlaying);
@@ -18,6 +19,7 @@ const roomId = useRoomSelector((s) => s.room?.id);
 const roomSettings = useRoomSelector((s) => s.room?.settings);
 const actionLoading = useRoomSelector((s) => s.actionLoading);
 const socketClient = inject<WebSocketClient>("socketClient");
+const { isFavorite, toggleFavorite } = useFavorites();
 
 const audioRef = ref<HTMLAudioElement | null>(null);
 const isPlaying = ref(false);
@@ -427,6 +429,19 @@ async function voteSkip() {
             </div>
 
             <div class="flex items-center gap-3">
+              <!-- Favorite Button -->
+              <Button
+                v-if="nowPlaying"
+                variant="ghost"
+                size="icon"
+                class="h-10 w-10 rounded-full transition-all duration-300"
+                :class="isFavorite(nowPlaying.song.id) ? 'text-rose-500 hover:text-rose-400 bg-rose-500/10' : 'text-white/60 hover:text-white hover:bg-white/10'"
+                @click="toggleFavorite(nowPlaying.song)"
+                title="收藏"
+              >
+                <Heart class="h-5 w-5" :class="{ 'fill-current': isFavorite(nowPlaying.song.id) }" />
+              </Button>
+
               <!-- Lyrics Button -->
               <Button
                 v-if="nowPlaying"

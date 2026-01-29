@@ -9,6 +9,7 @@ import SidebarLeft from "@/components/room/SidebarLeft.vue";
 import SidebarRight from "@/components/room/SidebarRight.vue";
 import MainStage from "@/components/room/MainStage.vue";
 import JoinRoomDialog from "@/components/room/JoinRoomDialog.vue";
+import BarrageContainer from "@/components/room/barrage/BarrageContainer.vue";
 import { getRoomState } from "@/api/rooms";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -131,6 +132,8 @@ onMounted(() => {
 
     <RoomHeader />
 
+    <BarrageContainer />
+
     <JoinRoomDialog
       v-if="showJoinDialog"
       :room-id="roomId"
@@ -141,20 +144,24 @@ onMounted(() => {
       <div class="mx-auto h-full max-w-[1600px] p-4 lg:p-6">
         <div class="grid h-full grid-cols-12 gap-6">
           <!-- Left Sidebar (Desktop) -->
-          <div class="hidden lg:col-span-3 lg:flex lg:flex-col lg:gap-4">
+          <div
+            class="hidden lg:col-span-3 lg:flex lg:flex-col lg:gap-4 lg:overflow-hidden"
+          >
             <SidebarLeft />
           </div>
 
           <!-- Main Stage (Desktop & Mobile) -->
           <div
-            class="col-span-12 flex flex-col gap-4 lg:col-span-6 h-full lg:h-auto overflow-y-auto lg:overflow-visible"
+            class="col-span-12 flex flex-col gap-4 lg:col-span-6 h-full lg:h-auto overflow-y-auto lg:overflow-hidden"
             :class="{ 'hidden lg:flex': activeTab !== 'player' }"
           >
             <MainStage />
           </div>
 
           <!-- Right Sidebar (Desktop) -->
-          <div class="hidden lg:col-span-3 lg:flex lg:flex-col lg:gap-4">
+          <div
+            class="hidden lg:col-span-3 lg:flex lg:flex-col lg:gap-4 lg:overflow-hidden"
+          >
             <SidebarRight />
           </div>
 

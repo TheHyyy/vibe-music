@@ -185,6 +185,12 @@ app.post("/api/rooms/:roomId/queue", (req, res) => {
 
     // 如果 nowPlaying 变了（例如之前为空），则全量广播以更新播放状态
     if (rec.nowPlaying?.id !== oldNowPlayingId) {
+      if (rec.nowPlaying) {
+        broadcastSystemMessage(
+          roomId,
+          `切歌: ${rec.nowPlaying.song.title} - ${rec.nowPlaying.song.artist || "未知歌手"}`,
+        );
+      }
       broadcastRoomState(roomId);
     } else {
       // 否则只广播队列更新，减少开销
@@ -229,6 +235,12 @@ app.post("/api/rooms/:roomId/queue/:itemId/votes", (req, res) => {
       ) {
         console.log(`[Vote] Skip threshold reached for room ${roomId}`);
         const nowPlaying = nextSong(roomId);
+        if (nowPlaying) {
+          broadcastSystemMessage(
+            roomId,
+            `投票跳过成功，开始播放: ${nowPlaying.song.title}`,
+          );
+        }
         io.to(roomId).emit("queue:update", {
           mode: "replace",
           queue: rec.queue,
@@ -303,6 +315,10 @@ app.post("/api/rooms/:roomId/admin/next", async (req, res) => {
       } else {
         console.warn("[AdminNext] Failed to find hot song");
       }
+    }
+
+    if (nowPlaying) {
+      broadcastSystemMessage(roomId, `管理员切歌: ${nowPlaying.song.title}`);
     }
 
     if (rec)
@@ -489,8 +505,17 @@ io.on("connection", (socket) => {
         ack?.(ok(buildState(body.roomId, userId)));
         broadcastRoomState(body.roomId);
 
-        // Check if room is empty and auto-play
+        // System Message: User Joined
         const rec = rooms.get(body.roomId);
+        const member = rec?.members.get(userId);
+        if (member) {
+          broadcastSystemMessage(
+            body.roomId,
+            `${member.displayName} 加入了房间`,
+          );
+        }
+
+        // Check if room is empty and auto-play
         if (rec && !rec.nowPlaying && rec.queue.length === 0) {
           console.log(
             `[Join] Room ${body.roomId} is empty, triggering auto-play...`,
@@ -530,6 +555,14 @@ io.on("connection", (socket) => {
             `[Disconnect] Removing user ${userId} from room ${roomId} after timeout`,
           );
           try {
+            const rec = rooms.get(roomId);
+            const member = rec?.members.get(userId);
+            if (member) {
+              broadcastSystemMessage(
+                roomId,
+                `${member.displayName} 离开了房间`,
+              );
+            }
             removeMember(roomId, userId);
             broadcastRoomState(roomId);
           } catch (e) {
@@ -565,6 +598,50 @@ io.on("connection", (socket) => {
       }
     },
   );
+
+  socket.on("chat:message", (body: { content: string }) => {
+    try {
+      const userId = (socket.data as any).userId as string;
+      const roomId = (socket.data as any).roomId as string;
+      const content = String(body.content || "").trim();
+
+      if (!userId || !roomId || !content) return;
+      if (content.length > 500) return;
+
+      const rec = rooms.get(roomId);
+      const member = rec?.members.get(userId);
+      if (!member) return;
+
+      const message = {
+        id: nanoid(),
+        userId,
+        displayName: member.displayName,
+        content,
+        timestamp: Date.now(),
+      };
+
+      io.to(roomId).emit("chat:message", message);
+    } catch (e) {
+      console.error("chat:message error", e);
+    }
+  });
+
+  socket.on("room:reaction", (body: { emoji: string }) => {
+    try {
+      const userId = (socket.data as any).userId as string;
+      const roomId = (socket.data as any).roomId as string;
+      const emoji = String(body.emoji || "").trim();
+
+      if (!roomId || !emoji) return;
+
+      io.to(roomId).emit("room:reaction", {
+        emoji,
+        userId,
+      });
+    } catch (e) {
+      console.error("room:reaction error", e);
+    }
+  });
 });
 
 async function broadcastRoomState(roomId: string) {
@@ -573,13 +650,25 @@ async function broadcastRoomState(roomId: string) {
   for (const s of sockets) {
     const userId = (s.data as any).userId as string;
     try {
-      console.log(`[Broadcast] Sending state to user ${userId}`);
+      // console.log(`[Broadcast] Sending state to user ${userId}`);
       s.emit("room:state", buildState(roomId, userId));
     } catch (e) {
       console.error(`[Broadcast] Failed to send state to user ${userId}:`, e);
       void 0;
     }
   }
+}
+
+function broadcastSystemMessage(roomId: string, content: string) {
+  const message = {
+    id: nanoid(),
+    userId: "SYSTEM",
+    displayName: "系统消息",
+    content,
+    timestamp: Date.now(),
+    type: "SYSTEM",
+  };
+  io.to(roomId).emit("chat:message", message);
 }
 
 const port = Number(process.env.PORT || 3001);

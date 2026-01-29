@@ -1,11 +1,12 @@
-import { io } from "socket.io-client";
-import { onUnmounted, ref } from "vue";
+import { io, type Socket } from "socket.io-client";
+import { onUnmounted, ref, type Ref } from "vue";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
 import type { QueueItem, RoomStatePayload } from "@/types/api";
 
 type Ack<T> = { ok: true; data: T } | { ok: false; error: { message: string } };
 
 export interface WebSocketClient {
+  socket: Ref<Socket | null>;
   connect: () => void;
   disconnect: () => void;
   emitAck: <T>(event: string, body: unknown) => Promise<T>;
@@ -15,7 +16,7 @@ export interface WebSocketClient {
 export function useWebSocket(roomId: string): WebSocketClient {
   const actions = useRoomActions();
   const token = useRoomSelector((s) => s.token);
-  const socketRef = ref<ReturnType<typeof io> | null>(null);
+  const socketRef = ref<Socket | null>(null);
 
   function connect() {
     if (socketRef.value) return;
@@ -93,6 +94,7 @@ export function useWebSocket(roomId: string): WebSocketClient {
   });
 
   return {
+    socket: socketRef,
     connect,
     disconnect,
     emitAck,

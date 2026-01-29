@@ -61,6 +61,9 @@ export async function requestSong(
   return res.data;
 }
 
+// Alias for compatibility
+export const addQueueItem = requestSong;
+
 export async function vote(
   roomId: string,
   itemId: string,
