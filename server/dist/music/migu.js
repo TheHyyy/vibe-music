@@ -364,6 +364,35 @@ ZosTByYp4Xwpb1+WAQIDAQAB
         }
     }
     async getLyric(id) {
-        return null;
+        try {
+            const copyrightId = id.replace("migu:", "");
+            const headers = this.getHeaders();
+            console.log(`[MIGU] Getting lyric for ${copyrightId}`);
+            const resInfo = await axios.get("https://c.musicapp.migu.cn/MIGUM2.0/v1.0/content/resourceinfo.do", {
+                params: {
+                    copyrightId,
+                    resourceType: 2,
+                },
+                headers: headers,
+            });
+            const data = resInfo.data?.resource?.[0];
+            if (data?.lrcUrl) {
+                let lrcUrl = data.lrcUrl;
+                if (lrcUrl.startsWith("ftp://")) {
+                    lrcUrl = lrcUrl.replace(/ftp:\/\/[^/]+/, "https://freetyst.nf.migu.cn");
+                }
+                console.log(`[MIGU] Found lyric URL: ${lrcUrl}`);
+                const lrcRes = await axios.get(lrcUrl, { headers });
+                return typeof lrcRes.data === "string"
+                    ? lrcRes.data
+                    : JSON.stringify(lrcRes.data);
+            }
+            console.warn(`[MIGU] No lyric URL found for ${copyrightId}`);
+            return null;
+        }
+        catch (e) {
+            console.error("Migu getLyric error:", e);
+            return null;
+        }
     }
 }
