@@ -6,19 +6,24 @@ import type { Song } from "../types.js";
 export class MiguProvider implements MusicProvider {
   name = "MIGU";
 
+  private getHeaders() {
+    const headers: Record<string, string> = {
+      "User-Agent":
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1",
+      Referer: "https://m.music.migu.cn/",
+      By: "792750346062",
+    };
+
+    if (process.env.MIGU_COOKIE) {
+      headers["Cookie"] = process.env.MIGU_COOKIE;
+    }
+
+    return headers;
+  }
+
   async search(query: string, page = 1): Promise<Song[]> {
-    console.log(`[Migu] Searching for: ${query}, page: ${page}`);
     try {
-      // Migu Search API v3 - Alternative endpoint
-      // Sometimes the tag search is blocked or requires specific headers
-      // Let's try the suggestion API or the main search API if available
-
-      // Attempt 1: Main Search API (often requires more headers)
-      // https://m.music.migu.cn/migu/remoting/scr_search_tag
-
-      // Attempt 2: New Migu Music API (from app reverse engineering)
-      // https://pd.musicapp.migu.cn/MIGUM2.0/v1.0/content/search_all.do
-      const deviceId = crypto.randomUUID();
+      // Use the mobile API which returns better metadata
       const res = await axios.get(
         "https://pd.musicapp.migu.cn/MIGUM2.0/v1.0/content/search_all.do",
         {
@@ -26,14 +31,9 @@ export class MiguProvider implements MusicProvider {
             text: query,
             pageNo: page,
             pageSize: 10,
-            searchSwitch: '{"song":1}', // Only search songs
+            searchSwitch: '{"song":1}',
           },
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1",
-            By: "792750346062",
-            Referer: "https://m.music.migu.cn/",
-          },
+          headers: this.getHeaders(),
         },
       );
 
@@ -42,7 +42,7 @@ export class MiguProvider implements MusicProvider {
         id: `migu:${s.copyrightId}`,
         title: s.name,
         artist: s.singers?.map((singer: any) => singer.name).join(", "),
-        durationSec: 0, // Duration might be in other fields or not available here
+        durationSec: 0,
         coverUrl: s.imgItems?.[0]?.img || "",
         source: "MIGU",
       }));
@@ -55,8 +55,34 @@ export class MiguProvider implements MusicProvider {
   async getPlayUrl(id: string): Promise<string | null> {
     try {
       const copyrightId = id.replace("migu:", "");
-      // Migu Play URL API
-      // We can try getting it from the new API
+
+      // Strategy 1: Web Player API (Requires Cookie for VIP songs)
+      // This is the most likely to work with a user-provided VIP cookie
+      try {
+        const webRes = await axios.get(
+          "https://music.migu.cn/v3/music/player/audio",
+          {
+            params: { itemid: copyrightId },
+            headers: {
+              ...this.getHeaders(),
+              Referer: "https://music.migu.cn/v3/music/player/audio",
+              "User-Agent":
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            },
+          },
+        );
+
+        if (
+          webRes.data?.returnCode === "000000" &&
+          webRes.data?.data?.playUrl
+        ) {
+          return webRes.data.data.playUrl;
+        }
+      } catch (e) {
+        console.warn("Migu Web API failed, trying fallback...");
+      }
+
+      // Strategy 2: Mobile Resource API (Fallback)
       const res = await axios.get(
         "https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/resourceinfo.do",
         {
@@ -64,35 +90,50 @@ export class MiguProvider implements MusicProvider {
             copyrightId,
             resourceType: 2,
           },
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1",
-          },
+          headers: this.getHeaders(),
         },
       );
 
       const data = res.data?.resource?.[0];
       if (!data) return null;
 
-      // Prioritize high quality
-      const format =
-        data.newRateFormats?.find((f: any) => f.formatType === "SQ") ||
-        data.newRateFormats?.find((f: any) => f.formatType === "HQ") ||
-        data.newRateFormats?.[0];
+      // Check for rate formats (PQ, HQ, SQ, etc.)
+      const formats = data.newRateFormats || data.rateFormats || [];
+      const targetFormat =
+        formats.find((f: any) => f.formatType === "SQ") ||
+        formats.find((f: any) => f.formatType === "HQ") ||
+        formats.find((f: any) => f.formatType === "PQ") ||
+        formats[0];
 
-      let url = format?.url || data.rateFormats?.[0]?.url;
+      if (targetFormat && targetFormat.contentId) {
+        try {
+          const listenRes = await axios.get(
+            "https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/sub/listenSong.do",
+            {
+              params: {
+                copyrightId,
+                contentId: targetFormat.contentId,
+                toneFlag: targetFormat.formatType,
+                resourceType: 2,
+                channel: "0146951",
+                uid: "1234",
+              },
+              headers: {
+                ...this.getHeaders(),
+                channel: "0146951",
+                uid: "1234",
+              },
+              maxRedirects: 0,
+              validateStatus: (status) => status >= 200 && status < 400,
+            },
+          );
 
-      if (url) {
-        // URLs usually start with ftp://, need to convert to http/https if possible
-        // or they are just regular http
-        if (url.startsWith("ftp://")) {
-          // Sometimes Migu returns ftp links, which browsers don't support well for audio
-          // But often they have http alternatives or we can replace protocol?
-          // Actually Migu's ftp links are often accessible via http
-          url = url.replace("ftp://", "http://");
+          if (listenRes.status === 302 || listenRes.status === 301) {
+            return listenRes.headers.location;
+          }
+        } catch (e) {
+          console.warn("Migu listenSong.do failed:", e);
         }
-        // Remove newlines if any
-        return url.replace(/\s/g, "");
       }
 
       return null;
@@ -103,26 +144,6 @@ export class MiguProvider implements MusicProvider {
   }
 
   async getLyric(id: string): Promise<string | null> {
-    try {
-      const copyrightId = id.replace("migu:", "");
-      const res = await axios.get(
-        "https://app.c.nf.migu.cn/MIGUM2.0/v1.0/content/resourceinfo.do",
-        {
-          params: {
-            copyrightId,
-            resourceType: 2,
-          },
-        },
-      );
-
-      const lrcUrl = res.data?.resource?.[0]?.lrcUrl;
-      if (lrcUrl) {
-        const lrcRes = await axios.get(lrcUrl);
-        return lrcRes.data;
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
+    return null;
   }
 }
