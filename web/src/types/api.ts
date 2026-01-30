@@ -68,4 +68,5 @@ export type ApiResult<T> = ApiOk<T> | ApiErr;
 
 export interface ServerConfig {
   enableQQ: boolean;
+  enableMigu: boolean;
 }

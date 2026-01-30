@@ -6,7 +6,7 @@ import type { QueueItem, RoomStatePayload } from "@/types/api";
 type Ack<T> = { ok: true; data: T } | { ok: false; error: { message: string } };
 
 export interface WebSocketClient {
-  socket: Ref<Socket | null>;
+  socket: Ref<any>;
   connect: () => void;
   disconnect: () => void;
   emitAck: <T>(event: string, body: unknown) => Promise<T>;

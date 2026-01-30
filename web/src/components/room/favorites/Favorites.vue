@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useFavorites } from "@/composables/useFavorites";
-import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
+import { useRoomSelector } from "@/stores/useRoomStore";
 import { addQueueItem } from "@/api/rooms";
 import { ElMessage } from "element-plus";
 import { Play, Trash2, Heart } from "lucide-vue-next";
@@ -8,7 +8,6 @@ import type { Song } from "@/types/api";
 
 const { favorites, removeFavorite } = useFavorites();
 const roomId = useRoomSelector((s) => s.room?.id);
-const actions = useRoomActions();
 const queue = useRoomSelector((s) => s.queue);
 
 function isQueued(songId: string) {
@@ -21,9 +20,9 @@ async function addToQueue(song: Song) {
     ElMessage.warning("队列中已存在该歌曲");
     return;
   }
-  
+
   try {
-    await addQueueItem(roomId.value, song);
+    await addQueueItem(roomId.value, { song });
     ElMessage.success("已点歌");
   } catch (e: any) {
     ElMessage.error(e.message || "点歌失败");
@@ -33,7 +32,10 @@ async function addToQueue(song: Song) {
 
 <template>
   <div class="flex flex-col h-full overflow-hidden">
-    <div v-if="favorites.length === 0" class="flex-1 flex flex-col items-center justify-center text-slate-500 gap-2">
+    <div
+      v-if="favorites.length === 0"
+      class="flex-1 flex flex-col items-center justify-center text-slate-500 gap-2"
+    >
       <Heart class="h-12 w-12 opacity-20" />
       <div class="text-sm">暂无收藏歌曲</div>
       <div class="text-xs opacity-50">在播放器或搜索结果中点击爱心收藏</div>
@@ -58,9 +60,9 @@ async function addToQueue(song: Song) {
             {{ song.artist || "未知歌手" }}
           </div>
         </div>
-        
+
         <div class="flex items-center gap-1">
-           <button
+          <button
             class="rounded-lg p-2 text-slate-400 hover:bg-primary hover:text-white transition-colors"
             title="点歌"
             @click="addToQueue(song)"

@@ -10,7 +10,7 @@ import Input from "@/components/ui/Input.vue";
 import Button from "@/components/ui/Button.vue";
 import { useFavorites } from "@/composables/useFavorites";
 
-const props = defineProps<{
+const { stripped = false } = defineProps<{
   stripped?: boolean;
 }>();
 

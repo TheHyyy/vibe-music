@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onUnmounted, nextTick, inject, watch } from "vue";
-import { Send, MessageSquare, Heart } from "lucide-vue-next";
+import { Send, MessageSquare } from "lucide-vue-next";
 import { animalAvatarUrl } from "@/lib/utils";
 import type { WebSocketClient } from "@/hooks/useWebSocket";
 
@@ -39,8 +39,23 @@ function sendMessage() {
   inputValue.value = "";
 }
 
-function sendReaction(emoji: string) {
+function sendReaction() {
   if (!socketClient) return;
+  // 随机emoji
+  const emojis = [
+    "🐑",
+    "🎇",
+    "👍",
+    "❤️",
+    "😂",
+    "😍",
+    "😭",
+    "😡",
+    "🐒",
+    "🍚",
+    "🐷",
+  ];
+  const emoji = emojis[Math.floor(Math.random() * emojis.length)];
   socketClient.emit("room:reaction", { emoji });
 }
 
@@ -73,11 +88,12 @@ onUnmounted(() => {
         <h3 class="font-semibold text-white">实时聊天</h3>
       </div>
       <button
-        @click="sendReaction('❤️')"
+        @click="sendReaction"
         class="text-rose-500 hover:scale-110 active:scale-95 transition-transform"
         title="点赞"
       >
-        <Heart class="h-5 w-5 fill-current" />
+        💗
+        <!-- <Heart class="h-5 w-5 fill-current" /> -->
       </button>
     </div>
 

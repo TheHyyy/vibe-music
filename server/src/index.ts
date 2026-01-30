@@ -454,6 +454,7 @@ app.get("/api/config", (req, res) => {
   res.json(
     ok({
       enableQQ: process.env.ENABLE_QQ_MUSIC === "true",
+      enableMigu: process.env.ENABLE_MIGU_MUSIC !== "false",
     }),
   );
 });

@@ -11,13 +11,15 @@ const providerMode = String(process.env.ECHO_MUSIC_PROVIDER || "")
 
 // 控制是否启用 QQ 音乐（可通过环境变量配置）
 const enableQQ = process.env.ENABLE_QQ_MUSIC === "true";
+// 控制是否启用 Migu 音乐（默认开启，除非显式设置为 false）
+const enableMigu = process.env.ENABLE_MIGU_MUSIC !== "false";
 
 const providers: MusicProvider[] =
   providerMode === "MOCK"
     ? [new MockProvider()]
     : [
         new NeteaseProvider(),
-        new MiguProvider(),
+        ...(enableMigu ? [new MiguProvider()] : []),
         ...(enableQQ ? [new QQProvider()] : []),
       ];
 
