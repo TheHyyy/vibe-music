@@ -121,7 +121,7 @@ onMounted(() => {
 
 <template>
   <div
-    class="min-h-screen bg-background text-foreground overflow-hidden flex flex-col"
+    class="h-screen bg-background text-foreground overflow-hidden flex flex-col"
   >
     <!-- Mesh Gradient Background -->
     <div class="mesh-bg">
@@ -152,7 +152,7 @@ onMounted(() => {
 
           <!-- Main Stage (Desktop & Mobile) -->
           <div
-            class="col-span-12 flex flex-col gap-4 lg:col-span-6 h-full lg:h-auto overflow-y-auto lg:overflow-hidden"
+            class="col-span-12 flex flex-col gap-4 lg:col-span-6 h-full overflow-y-auto lg:overflow-hidden"
             :class="{ 'hidden lg:flex': activeTab !== 'player' }"
           >
             <MainStage />

@@ -3,6 +3,7 @@ import { ref, onUnmounted, nextTick, inject, watch } from "vue";
 import { Send, MessageSquare } from "lucide-vue-next";
 import { animalAvatarUrl } from "@/lib/utils";
 import type { WebSocketClient } from "@/hooks/useWebSocket";
+import { useRoomSelector } from "@/stores/useRoomStore";
 
 interface ChatMessage {
   id: string;
@@ -14,6 +15,7 @@ interface ChatMessage {
 }
 
 const socketClient = inject<WebSocketClient>("socketClient");
+const currentUser = useRoomSelector((s) => s.currentUser);
 const messages = ref<ChatMessage[]>([]);
 const inputValue = ref("");
 const messagesEndRef = ref<HTMLElement | null>(null);
@@ -28,7 +30,9 @@ function scrollToBottom() {
 
 function onMessage(msg: ChatMessage) {
   messages.value.push(msg);
-  scrollToBottom();
+  if (msg.userId === currentUser.value?.id) {
+    scrollToBottom();
+  }
 }
 
 function sendMessage() {

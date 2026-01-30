@@ -4,8 +4,10 @@ import QueueList from "@/components/room/queue/QueueList.vue";
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 h-full">
+  <div class="flex flex-col gap-4 h-full overflow-hidden">
+    <div>111</div>
     <NowPlaying class="shrink-0" />
-    <QueueList class="flex-1 min-h-0" />
+    <div>1232112</div>
+    <QueueList class="flex-1" />
   </div>
 </template>

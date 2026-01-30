@@ -34,30 +34,31 @@ watch(
 </script>
 
 <template>
-  <div class="glass flex flex-1 flex-col overflow-hidden rounded-2xl">
-    <div class="border-b border-white/5 px-4 py-3">
+  <div class="glass flex flex-col overflow-hidden rounded-2xl">
+    <div class="border-b border-white/5 px-4 py-3 shrink-0">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <ListMusic class="h-4 w-4 text-slate-400" />
           <h3 class="font-semibold text-white">播放队列</h3>
         </div>
-        <div class="text-[10px] text-slate-400">
-          {{ queue.length }} 首待播
-        </div>
+        <div class="text-[10px] text-slate-400">{{ queue.length }} 首待播</div>
       </div>
     </div>
-    
-    <div ref="listRef" class="flex-1 overflow-y-auto p-2 scrollbar-thin" data-testid="queue-list">
-      <div v-if="queue.length === 0" class="flex h-40 flex-col items-center justify-center text-slate-500">
+
+    <div
+      ref="listRef"
+      class="flex-1 overflow-y-auto p-2 scrollbar-thin"
+      data-testid="queue-list"
+    >
+      <div
+        v-if="queue.length === 0"
+        class="flex h-40 flex-col items-center justify-center text-slate-500"
+      >
         <div class="text-sm">暂无歌曲</div>
         <div class="text-xs opacity-50">快去点一首吧</div>
       </div>
-      
-      <TransitionGroup 
-        name="list" 
-        tag="div" 
-        class="space-y-2"
-      >
+
+      <TransitionGroup name="list" tag="div" class="space-y-2">
         <QueueItem v-for="item in queue" :key="item.id" :item="item" />
       </TransitionGroup>
     </div>

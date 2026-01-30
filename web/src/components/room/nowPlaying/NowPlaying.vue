@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, inject } from "vue";
 import { ElMessage } from "element-plus";
-import { SkipForward, Disc3, Volume2, VolumeX, Mic2, Heart } from "lucide-vue-next";
+import {
+  SkipForward,
+  Disc3,
+  Volume2,
+  VolumeX,
+  Mic2,
+  Heart,
+  ChevronDown,
+} from "lucide-vue-next";
 import { adminNext, vote, reportEnded } from "@/api/rooms";
 import { getPlayUrl, getLyric } from "@/api/songs";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
@@ -31,7 +39,7 @@ const isMuted = ref(false);
 const prevVolume = ref(1);
 
 // Lyrics state
-const showLyrics = ref(true);
+const showLyrics = ref(false);
 const lyrics = ref<LrcLine[]>([]);
 const currentLineIndex = ref(-1);
 const lyricsContainerRef = ref<HTMLDivElement | null>(null);
@@ -273,7 +281,7 @@ async function voteSkip() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
+  <div class="flex flex-col gap-4 min-h-0">
     <audio
       ref="audioRef"
       :src="audioUrl"
@@ -287,7 +295,8 @@ async function voteSkip() {
 
     <!-- Player Card -->
     <div
-      class="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl transition-all duration-500"
+      v-if="!showLyrics"
+      class="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl transition-all duration-500 shrink-0"
     >
       <div class="text-xs text-red-500 fixed top-0 left-0 z-50 bg-black"></div>
 
@@ -314,7 +323,9 @@ async function voteSkip() {
         >
           <!-- Standard Cover View -->
           <div
-            class="group relative h-full w-full overflow-hidden rounded-full border border-white/10 bg-black/20 shadow-xl"
+            class="group relative h-full w-full overflow-hidden rounded-full border border-white/10 bg-black/20 shadow-xl cursor-pointer"
+            @click="showLyrics = true"
+            title="查看歌词"
           >
             <img
               v-if="nowPlaying?.song.coverUrl"
@@ -435,19 +446,26 @@ async function voteSkip() {
                 variant="ghost"
                 size="icon"
                 class="h-10 w-10 rounded-full transition-all duration-300"
-                :class="isFavorite(nowPlaying.song.id) ? 'text-rose-500 hover:text-rose-400 bg-rose-500/10' : 'text-white/60 hover:text-white hover:bg-white/10'"
+                :class="
+                  isFavorite(nowPlaying.song.id)
+                    ? 'text-rose-500 hover:text-rose-400 bg-rose-500/10'
+                    : 'text-white/60 hover:text-white hover:bg-white/10'
+                "
                 @click="toggleFavorite(nowPlaying.song)"
                 title="收藏"
               >
-                <Heart class="h-5 w-5" :class="{ 'fill-current': isFavorite(nowPlaying.song.id) }" />
+                <Heart
+                  class="h-5 w-5"
+                  :class="{ 'fill-current': isFavorite(nowPlaying.song.id) }"
+                />
               </Button>
 
               <!-- Lyrics Button -->
               <Button
                 v-if="nowPlaying"
                 variant="ghost"
-                size="icon"
-                class="h-10 w-10 rounded-full transition-all duration-300"
+                size="sm"
+                class="rounded-full transition-all duration-300"
                 :class="
                   showLyrics
                     ? 'text-white bg-white/20'
@@ -456,7 +474,8 @@ async function voteSkip() {
                 @click="showLyrics = !showLyrics"
                 title="歌词"
               >
-                <Mic2 class="h-5 w-5" />
+                <Mic2 class="h-4 w-4 mr-1.5" />
+                歌词
               </Button>
 
               <Button
@@ -501,7 +520,7 @@ async function voteSkip() {
     >
       <div
         v-if="showLyrics && nowPlaying"
-        class="relative flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/90 shadow-2xl h-96"
+        class="relative flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/90 shadow-2xl flex-1 min-h-0"
       >
         <!-- Background Blur for Lyrics -->
         <div class="absolute inset-0 z-0">
@@ -514,26 +533,33 @@ async function voteSkip() {
 
         <!-- Lyrics Content -->
         <div class="relative z-10 flex flex-col h-full p-6">
+          <!-- Header with Close Button -->
           <div class="flex items-center justify-between mb-4 shrink-0">
-            <div
-              class="text-sm font-medium text-white/60 flex items-center gap-2"
-            >
-              <Mic2 class="h-4 w-4" />
-              Lyrics
+            <div class="flex flex-col min-w-0">
+              <h3 class="text-lg font-bold text-white truncate">
+                {{ nowPlaying.song.title }}
+              </h3>
+              <p class="text-sm text-white/60 truncate">
+                {{ nowPlaying.song.artist }}
+              </p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              class="h-8 w-8 text-white/40 hover:text-white"
-              @click="showLyrics = false"
-            >
-              <VolumeX class="h-4 w-4 rotate-45" />
-            </Button>
+
+            <div class="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                class="h-8 w-8 text-white/40 hover:text-white"
+                @click="showLyrics = false"
+                title="收起歌词"
+              >
+                <ChevronDown class="h-5 w-5" />
+              </Button>
+            </div>
           </div>
 
           <div
             ref="lyricsContainerRef"
-            class="relative flex-1 overflow-y-auto scrollbar-hide text-center space-y-6 mask-image-gradient py-8"
+            class="relative flex-1 overflow-y-auto scrollbar-hide text-center space-y-6 mask-image-gradient py-4"
           >
             <div
               v-if="lyrics.length === 0"
@@ -559,6 +585,57 @@ async function voteSkip() {
               "
             >
               {{ line.text }}
+            </div>
+          </div>
+
+          <!-- Bottom Controls (Mini) -->
+          <div
+            class="mt-4 pt-4 border-t border-white/5 flex items-center gap-4 shrink-0"
+          >
+            <!-- Progress -->
+            <div class="flex-1 space-y-1">
+              <div
+                class="relative h-1 w-full overflow-hidden rounded-full bg-white/10 group cursor-pointer"
+                @click="
+                  (e) => {
+                    if (!audioRef || !canAdmin) return;
+                    const rect = (
+                      e.target as HTMLElement
+                    ).getBoundingClientRect();
+                    const pos = (e.clientX - rect.left) / rect.width;
+                    audioRef.currentTime = pos * (audioRef.duration || 0);
+                  }
+                "
+              >
+                <div
+                  class="h-full rounded-full bg-white"
+                  :style="{
+                    width: `${(currentTime / (duration || 1)) * 100}%`,
+                  }"
+                ></div>
+              </div>
+              <div
+                class="flex justify-between text-[10px] text-white/40 font-mono"
+              >
+                <span>{{ formatTime(currentTime) }}</span>
+                <span>{{
+                  formatTime(duration || nowPlaying.song.durationSec || 0)
+                }}</span>
+              </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="flex items-center gap-2">
+              <Button
+                v-if="canAdmin"
+                variant="secondary"
+                size="sm"
+                class="h-8 text-xs px-2"
+                :loading="nextLoading"
+                @click="nextSong"
+              >
+                切歌
+              </Button>
             </div>
           </div>
         </div>
