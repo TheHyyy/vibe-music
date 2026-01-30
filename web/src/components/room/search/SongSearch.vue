@@ -120,8 +120,8 @@ async function addSong(song: Song) {
       </div>
     </div>
 
-    <div class="p-3">
-      <div class="relative flex items-center gap-2">
+    <div class="p-3 flex-1 min-h-0 flex flex-col">
+      <div class="relative flex items-center gap-2 shrink-0">
         <Input
           data-testid="song-search-input"
           v-model="q"
@@ -145,7 +145,7 @@ async function addSong(song: Song) {
 
       <!-- Results List -->
       <div
-        class="mt-3 max-h-[400px] min-h-[100px] overflow-y-auto scrollbar-thin"
+        class="mt-3 flex-1 overflow-y-auto scrollbar-thin min-h-0"
       >
         <div
           v-if="searching && results.length === 0"
