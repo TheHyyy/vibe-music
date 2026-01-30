@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
 import { Music2, Radio, User, Hash, Sparkles } from "lucide-vue-next";
 import { createRoom, joinRoom } from "@/api/rooms";
@@ -15,13 +15,19 @@ const mode = ref<"create" | "join" | null>(null);
 const loading = ref(false);
 localStorage.removeItem("echo_music_last_room_id");
 
+const route = useRoute();
+const queryCode = route.query.code as string;
+if (queryCode) {
+  mode.value = "join";
+}
+
 const createForm = reactive({
   name: "六人组 Music",
   displayName: localStorage.getItem("echo_username") || "Host",
 });
 
 const joinForm = reactive({
-  code: "",
+  code: queryCode || "",
   displayName: localStorage.getItem("echo_username") || "",
 });
 

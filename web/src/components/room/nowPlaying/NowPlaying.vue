@@ -37,6 +37,7 @@ const audioUrl = ref("");
 const volume = ref(1);
 const isMuted = ref(false);
 const prevVolume = ref(1);
+const isEnding = ref(false);
 
 // Lyrics state
 const showLyrics = ref(false);
@@ -104,7 +105,13 @@ async function loadAndPlay() {
     }, 100);
   } catch (e) {
     console.error("Failed to get play url:", e);
-    ElMessage.error("无法播放该歌曲");
+    ElMessage.error(`无法播放: ${(e as Error).message || "未知错误"}`);
+    // Auto skip if error
+    if (canAdmin.value) {
+      setTimeout(() => {
+        nextSong();
+      }, 2000);
+    }
   }
 }
 
@@ -112,6 +119,7 @@ watch(
   () => nowPlaying.value?.id,
   (newId, oldId) => {
     if (newId !== oldId) {
+      isEnding.value = false;
       loadAndPlay();
     }
   },
@@ -205,14 +213,28 @@ function scrollToCurrentLine() {
 }
 
 async function onEnded() {
+  if (isEnding.value) return;
   isPlaying.value = false;
   // Auto next for everyone (server validates)
   if (roomId.value && nowPlaying.value) {
+    isEnding.value = true;
     try {
       await reportEnded(roomId.value, nowPlaying.value.id);
     } catch (e) {
       console.error("Auto-next failed:", e);
+      isEnding.value = false;
     }
+  }
+}
+
+function onAudioError(e: Event) {
+  console.error("Audio playback error:", e);
+  ElMessage.error("播放出错，尝试跳过...");
+  if (canAdmin.value && !isEnding.value) {
+    isEnding.value = true;
+    setTimeout(() => {
+      nextSong();
+    }, 1000);
   }
 }
 
@@ -287,6 +309,7 @@ async function voteSkip() {
       :src="audioUrl"
       @timeupdate="onTimeUpdate"
       @ended="onEnded"
+      @error="onAudioError"
       @play="onPlay"
       @pause="onPause"
       @seeked="onSeeked"
@@ -520,7 +543,7 @@ async function voteSkip() {
     >
       <div
         v-if="showLyrics && nowPlaying"
-        class="relative flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/90 shadow-2xl flex-1 min-h-0"
+        class="relative flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-900/90 shadow-2xl h-[450px]"
       >
         <!-- Background Blur for Lyrics -->
         <div class="absolute inset-0 z-0">

@@ -55,7 +55,8 @@ async function copyInviteLink() {
   const code = room.value?.code;
   if (!code) return;
   const url = `${window.location.origin}/?code=${code}`;
-  const ok = await copyText(url);
+  const text = `🎵 来六人组 Music 一起听歌吧！\n👉 点击加入：${url}\n🔑 房间码：${code}`;
+  const ok = await copyText(text);
   if (ok) ElMessage.success("已复制邀请链接");
   else ElMessage.error("复制失败，请手动选择复制");
 }

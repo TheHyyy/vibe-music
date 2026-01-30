@@ -3,7 +3,7 @@ import { computed, onMounted, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import useSWRV from "swrv";
 import { ElMessage } from "element-plus";
-import { Users, Disc3, ListMusic } from "lucide-vue-next";
+import { Users, Disc3, Search } from "lucide-vue-next";
 import RoomHeader from "@/components/room/RoomHeader.vue";
 import SidebarLeft from "@/components/room/SidebarLeft.vue";
 import SidebarRight from "@/components/room/SidebarRight.vue";
@@ -223,7 +223,7 @@ onMounted(() => {
           "
           @click="activeTab = 'queue'"
         >
-          <ListMusic class="h-5 w-5" />
+          <Search class="h-5 w-5" />
           <span>点歌</span>
           <span
             v-if="queue.length > 0"
