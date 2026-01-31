@@ -299,8 +299,28 @@ app.post("/api/rooms/:roomId/admin/next", async (req, res) => {
     console.log("[API] User role:", role);
     if (role !== "HOST" && role !== "MODERATOR") throw new Error("无权限");
 
-    let nowPlaying = nextSong(roomId);
+    const input = z
+      .object({ currentSongId: z.string().optional() })
+      .safeParse(req.body);
+    const currentSongId = input.success ? input.data.currentSongId : undefined;
+
     const rec = rooms.get(roomId);
+    if (!rec) throw new Error("房间不存在");
+
+    // Prevent double skip: if client thinks they are skipping song A, but server is already on song B
+    if (
+      currentSongId &&
+      rec.nowPlaying?.id &&
+      rec.nowPlaying.id !== currentSongId
+    ) {
+      console.log(
+        `[AdminNext] Skipped redundant request. Client: ${currentSongId}, Server: ${rec.nowPlaying.id}`,
+      );
+      res.json(ok({ nowPlaying: rec.nowPlaying }));
+      return;
+    }
+
+    let nowPlaying = nextSong(roomId);
 
     // Auto-play hot song if queue is empty
     if (!nowPlaying && rec) {

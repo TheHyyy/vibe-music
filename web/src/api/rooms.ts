@@ -78,9 +78,11 @@ export async function vote(
 
 export async function adminNext(
   roomId: string,
+  currentSongId?: string,
 ): Promise<ApiResult<{ nowPlaying?: QueueItem }>> {
   const res = await http.post<ApiResult<{ nowPlaying?: QueueItem }>>(
     `/api/rooms/${roomId}/admin/next`,
+    { currentSongId },
   );
   return res.data;
 }

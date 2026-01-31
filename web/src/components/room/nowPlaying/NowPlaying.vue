@@ -300,7 +300,7 @@ async function nextSong() {
   if (!roomId.value) return;
   actions.setActionLoading(nextLoadingKey.value, true);
   try {
-    const res = await adminNext(roomId.value);
+    const res = await adminNext(roomId.value, nowPlaying.value?.id);
     if (!res.ok) throw new Error((res as any).error.message);
     ElMessage.success("已切到下一首");
   } catch (e) {
