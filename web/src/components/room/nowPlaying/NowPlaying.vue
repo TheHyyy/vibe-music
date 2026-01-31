@@ -38,6 +38,7 @@ const volume = ref(1);
 const isMuted = ref(false);
 const prevVolume = ref(1);
 const isEnding = ref(false);
+const retryCount = ref(0);
 
 // Lyrics state
 const showLyrics = ref(false);
@@ -103,9 +104,10 @@ async function loadAndPlay() {
         });
       }
     }, 100);
-  } catch (e) {
+  } catch (e: any) {
     console.error("Failed to get play url:", e);
-    ElMessage.error(`无法播放: ${(e as Error).message || "未知错误"}`);
+    const msg = e.response?.data?.error?.message || e.message || "未知错误";
+    ElMessage.error(`无法播放: ${msg}`);
     // Auto skip if error
     if (canAdmin.value) {
       setTimeout(() => {
@@ -120,6 +122,7 @@ watch(
   (newId, oldId) => {
     if (newId !== oldId) {
       isEnding.value = false;
+      retryCount.value = 0;
       loadAndPlay();
     }
   },
@@ -228,13 +231,33 @@ async function onEnded() {
 }
 
 function onAudioError(e: Event) {
-  console.error("Audio playback error:", e);
-  ElMessage.error("播放出错，尝试跳过...");
-  if (canAdmin.value && !isEnding.value) {
-    isEnding.value = true;
+  const target = e.target as HTMLAudioElement;
+  console.error("Audio playback error:", e, target.error);
+
+  // If it's the first time loading this song and error occurs immediately
+  if (target.currentTime < 1 && retryCount.value < 2) {
+    console.log(`Retrying audio load (${retryCount.value + 1}/2)...`);
+    retryCount.value++;
     setTimeout(() => {
-      nextSong();
+      if (audioRef.value) {
+        // Try to reload the source
+        const currentSrc = audioRef.value.src;
+        audioRef.value.src = "";
+        audioRef.value.src = currentSrc;
+        audioRef.value.load();
+      }
     }, 1000);
+    return;
+  }
+
+  if (retryCount.value >= 2) {
+    ElMessage.warning("播放源失效，自动切歌...");
+    if (canAdmin.value && !isEnding.value) {
+      isEnding.value = true;
+      setTimeout(() => {
+        nextSong();
+      }, 1500);
+    }
   }
 }
 

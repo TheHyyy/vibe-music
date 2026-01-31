@@ -53,9 +53,10 @@ async function copyRoomCode() {
 
 async function copyInviteLink() {
   const code = room.value?.code;
-  if (!code) return;
-  const url = `${window.location.origin}/?code=${code}`;
-  const text = `🎵 来六人组 Music 一起听歌吧！\n👉 点击加入：${url}\n🔑 房间码：${code}`;
+  const id = room.value?.id;
+  if (!code || !id) return;
+  const url = `${window.location.origin}/rooms/${id}`;
+  const text = `🎵 来六人组 Music 一起听歌吧！\n👉 点击加入：${url}`;
   const ok = await copyText(text);
   if (ok) ElMessage.success("已复制邀请链接");
   else ElMessage.error("复制失败，请手动选择复制");
@@ -101,7 +102,10 @@ function backHome() {
                 class="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity"
               />
             </button>
-            <div data-testid="room-online-count" class="flex items-center gap-1">
+            <div
+              data-testid="room-online-count"
+              class="flex items-center gap-1"
+            >
               <Users class="h-3 w-3" />
               <span>{{ members.length }} 在线</span>
             </div>

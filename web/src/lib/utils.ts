@@ -10,6 +10,8 @@ export function animalAvatarUrl(seed: string) {
     "🐱",
     "🐶",
     "🦖",
+    "👑",
+    "🤡",
     "🐰",
     "🐻",
     "🦊",
@@ -50,6 +52,6 @@ export function animalAvatarUrl(seed: string) {
     <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="48" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">${emoji}</text>
   </svg>
   `.trim();
-  
+
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }

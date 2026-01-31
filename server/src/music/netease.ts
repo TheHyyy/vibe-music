@@ -81,9 +81,26 @@ export class NeteaseProvider implements MusicProvider {
 
       if (res.status !== 200) return null;
       const data = (res.body.data as any)?.[0];
-      return data?.url || null;
+      
+      if (!data) return null;
+      
+      if (!data.url) {
+        // Handle specific Netease error codes/flags
+        if (data.fee === 1) throw new Error("VIP 仅限");
+        if (data.fee === 4) throw new Error("需购买专辑");
+        if (data.code === 404) throw new Error("歌曲不存在");
+        if (data.code === -110) throw new Error("无权播放 (VIP/付费/无版权)");
+        
+        throw new Error(`无法播放 (Code: ${data.code}, Fee: ${data.fee})`);
+      }
+
+      return data.url;
     } catch (e) {
       console.error("Netease getPlayUrl error:", e);
+      // Re-throw if it's our custom error
+      if (e instanceof Error && (e.message.includes("VIP") || e.message.includes("专辑") || e.message.includes("无权") || e.message.includes("无法播放"))) {
+        throw e;
+      }
       return null;
     }
   }

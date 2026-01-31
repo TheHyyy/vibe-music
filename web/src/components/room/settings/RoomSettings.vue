@@ -12,7 +12,7 @@ const actionLoading = useRoomSelector((s) => s.actionLoading);
 const form = reactive({
   allowAnonymous: true,
   allowDuplicateSongs: false,
-  maxQueuedPerUser: 10,
+  maxQueuedPerUser: 30,
   skipVoteThreshold: 2,
 });
 
