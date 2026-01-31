@@ -9,6 +9,7 @@ import {
   Mic2,
   Heart,
   ChevronDown,
+  Play,
 } from "lucide-vue-next";
 import { adminNext, vote, reportEnded } from "@/api/rooms";
 import { getPlayUrl, getLyric } from "@/api/songs";
@@ -34,11 +35,12 @@ const isPlaying = ref(false);
 const currentTime = ref(0);
 const duration = ref(0);
 const audioUrl = ref("");
-const volume = ref(1);
+const volume = ref(Number(localStorage.getItem("echo_volume") ?? 1));
 const isMuted = ref(false);
 const prevVolume = ref(1);
 const isEnding = ref(false);
 const retryCount = ref(0);
+const autoplayFailed = ref(false);
 
 // Lyrics state
 const showLyrics = ref(false);
@@ -75,6 +77,7 @@ async function loadAndPlay() {
     duration.value = 0;
     lyrics.value = [];
     currentLineIndex.value = -1;
+    autoplayFailed.value = false;
     return;
   }
 
@@ -94,13 +97,15 @@ async function loadAndPlay() {
     if (!res.ok) throw new Error((res as any).error.message);
 
     audioUrl.value = res.data.url;
+    autoplayFailed.value = false;
 
     // Auto play
     setTimeout(() => {
       if (audioRef.value) {
+        audioRef.value.volume = volume.value; // Apply saved volume
         audioRef.value.play().catch((e) => {
           console.warn("Auto play failed:", e);
-          ElMessage.info("点击播放按钮开始听歌");
+          autoplayFailed.value = true;
         });
       }
     }, 100);
@@ -129,33 +134,50 @@ watch(
   { immediate: true },
 );
 
+function syncPlayback() {
+  if (canAdmin.value || !audioRef.value) return;
+  const state = playback.value;
+
+  if (state.isPaused) {
+    if (!audioRef.value.paused) audioRef.value.pause();
+    if (state.pausedAt) {
+      const targetTime = (state.pausedAt - state.startTime) / 1000;
+      if (Math.abs(audioRef.value.currentTime - targetTime) > 0.5) {
+        audioRef.value.currentTime = targetTime;
+      }
+    }
+  } else {
+    const targetTime = (Date.now() - state.startTime) / 1000;
+    // If drift > 2s, seek
+    if (Math.abs(audioRef.value.currentTime - targetTime) > 2) {
+      audioRef.value.currentTime = targetTime;
+    }
+    if (audioRef.value.paused) {
+      audioRef.value.play().catch(() => {
+        autoplayFailed.value = true;
+      });
+    }
+  }
+}
+
 // Guest Sync Logic
 watch(
   () => playback.value,
-  (state) => {
-    if (canAdmin.value || !audioRef.value) return;
-
-    if (state.isPaused) {
-      if (!audioRef.value.paused) audioRef.value.pause();
-      if (state.pausedAt) {
-        const targetTime = (state.pausedAt - state.startTime) / 1000;
-        if (Math.abs(audioRef.value.currentTime - targetTime) > 0.5) {
-          audioRef.value.currentTime = targetTime;
-        }
-      }
-    } else {
-      const targetTime = (Date.now() - state.startTime) / 1000;
-      // If drift > 2s, seek
-      if (Math.abs(audioRef.value.currentTime - targetTime) > 2) {
-        audioRef.value.currentTime = targetTime;
-      }
-      if (audioRef.value.paused) {
-        audioRef.value.play().catch(() => {});
-      }
-    }
+  () => {
+    syncPlayback();
   },
   { deep: true, immediate: true },
 );
+
+function onLoadedMetadata() {
+  if (audioRef.value) {
+    duration.value = audioRef.value.duration;
+    // Apply volume again just in case
+    audioRef.value.volume = volume.value;
+    // Sync playback for guests immediately when metadata is ready
+    syncPlayback();
+  }
+}
 
 function toggleMute() {
   if (!audioRef.value) return;
@@ -174,6 +196,7 @@ function toggleMute() {
 function onVolumeChange(e: Event) {
   const val = Number((e.target as HTMLInputElement).value);
   volume.value = val;
+  localStorage.setItem("echo_volume", String(val));
   if (audioRef.value) {
     audioRef.value.volume = val;
     audioRef.value.muted = val === 0;
@@ -272,18 +295,23 @@ function emitPlayerUpdate(isPaused: boolean, currentTime: number) {
 
 function onPlay() {
   isPlaying.value = true;
+  autoplayFailed.value = false;
 }
 
 function onPause() {
   isPlaying.value = false;
-  // Auto-resume logic: if host pauses (e.g. unplugging headphones), try to resume immediately
-  // because we removed the manual play/pause controls to avoid room-wide accidental pauses.
-  if (canAdmin.value && audioRef.value) {
+  // Auto-resume logic: try to resume immediately if we should be playing
+  // Host: Always resume (no pause feature)
+  // Guest: Resume if room is playing
+  const shouldBePlaying = canAdmin.value || !playback.value.isPaused;
+
+  if (shouldBePlaying && audioRef.value) {
     const audio = audioRef.value;
     setTimeout(() => {
       audio.play().catch((e) => {
         console.warn("Auto-resume failed:", e);
-        ElMessage.warning("播放已暂停，请检查音频设备");
+        // If resume fails (e.g. device lost or interaction needed), show overlay
+        autoplayFailed.value = true;
       });
     }, 100);
   }
@@ -293,6 +321,14 @@ function onSeeked() {
   if (audioRef.value) {
     // Force isPaused to false to prevent accidental pauses from syncing
     emitPlayerUpdate(false, audioRef.value.currentTime);
+  }
+}
+
+function retryPlay() {
+  if (audioRef.value) {
+    audioRef.value.play().catch((e) => {
+      ElMessage.error("播放失败，请检查设备权限");
+    });
   }
 }
 
@@ -336,6 +372,7 @@ async function voteSkip() {
       @play="onPlay"
       @pause="onPause"
       @seeked="onSeeked"
+      @loadedmetadata="onLoadedMetadata"
       preload="auto"
     ></audio>
 
@@ -387,6 +424,16 @@ async function voteSkip() {
                 class="h-24 w-24"
                 :class="{ 'animate-spin-slow': isPlaying }"
               />
+            </div>
+
+            <!-- Autoplay Failed Overlay -->
+            <div
+              v-if="autoplayFailed"
+              class="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm cursor-pointer"
+              @click.stop="retryPlay"
+              title="点击播放"
+            >
+              <Play class="h-12 w-12 text-white opacity-80 animate-pulse" />
             </div>
           </div>
         </div>
