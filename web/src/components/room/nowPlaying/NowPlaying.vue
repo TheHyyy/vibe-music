@@ -232,7 +232,8 @@ async function onEnded() {
 
 function onAudioError(e: Event) {
   const target = e.target as HTMLAudioElement;
-  console.error("Audio playback error:", e, target.error);
+  const err = target.error;
+  console.error("Audio playback error:", e, err);
 
   // If it's the first time loading this song and error occurs immediately
   if (target.currentTime < 1 && retryCount.value < 2) {
@@ -251,13 +252,12 @@ function onAudioError(e: Event) {
   }
 
   if (retryCount.value >= 2) {
-    ElMessage.warning("播放源失效，自动切歌...");
-    if (canAdmin.value && !isEnding.value) {
-      isEnding.value = true;
-      setTimeout(() => {
-        nextSong();
-      }, 1500);
-    }
+    // We used to auto-skip here, but it caused issues with local device errors (e.g. unplugging headphones)
+    // triggering room-wide skips. To be safe, we now only notify the user.
+    // The host can manually skip if the source is truly broken.
+
+    ElMessage.error(`播放出错 (Code ${err?.code})，若是资源失效请手动切歌`);
+    isPlaying.value = false;
   }
 }
 
