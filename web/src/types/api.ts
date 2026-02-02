@@ -18,6 +18,17 @@ export interface Room {
   name: string;
   code: string;
   settings: RoomSettings;
+  password?: string;
+  inviteToken?: string;
+}
+
+export interface RoomListItem {
+  id: string;
+  name: string;
+  hostName: string;
+  memberCount: number;
+  hasPassword: boolean;
+  nowPlaying?: Song;
 }
 
 export interface Song {
@@ -51,6 +62,7 @@ export interface RoomStatePayload {
   members: UserSummary[];
   nowPlaying?: QueueItem;
   queue: QueueItem[];
+  history: QueueItem[];
   playback: PlaybackState;
 }
 

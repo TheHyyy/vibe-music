@@ -14,6 +14,7 @@ import {
   cancelLeave,
   createRoom,
   joinRoom,
+  joinRoomById,
   nextSong,
   removeMember,
   roomRole,
@@ -85,6 +86,7 @@ function buildState(roomId: string, userId: string): RoomStatePayload {
 const createRoomSchema = z.object({
   name: z.string().min(1).max(120),
   displayName: z.string().min(1).max(80),
+  password: z.string().optional(),
   settings: z
     .object({
       allowAnonymous: z.boolean().optional(),
@@ -95,6 +97,23 @@ const createRoomSchema = z.object({
     .optional(),
 });
 
+app.get("/api/rooms", (req, res) => {
+  const list = Array.from(rooms.values()).map((rec) => {
+    const host = Array.from(rec.members.values()).find(
+      (m) => m.role === "HOST",
+    );
+    return {
+      id: rec.room.id,
+      name: rec.room.name,
+      hostName: host?.displayName || "Unknown",
+      memberCount: rec.members.size,
+      hasPassword: !!rec.room.password,
+      nowPlaying: rec.nowPlaying?.song,
+    };
+  });
+  res.json(ok(list));
+});
+
 app.post("/api/rooms", (req, res) => {
   try {
     const input = createRoomSchema.parse(req.body);
@@ -102,6 +121,7 @@ app.post("/api/rooms", (req, res) => {
     const { roomId, host } = createRoom({
       name: input.name,
       host: { id: userId, displayName: input.displayName },
+      password: input.password,
     });
     if (input.settings) updateSettings(roomId, input.settings);
     const token = signToken({ userId, roomId });
@@ -134,6 +154,41 @@ app.post("/api/rooms/join", (req, res) => {
   }
 });
 
+app.post("/api/rooms/:roomId/join", (req, res) => {
+  try {
+    const input = z
+      .object({
+        displayName: z.string().min(1).max(80),
+        password: z.string().optional(),
+        inviteToken: z.string().optional(),
+      })
+      .parse(req.body);
+
+    const rec = rooms.get(req.params.roomId);
+    if (!rec) throw new Error("房间不存在");
+
+    // Check password if not invited via valid token
+    if (rec.room.password) {
+      const isInviteValid =
+        input.inviteToken && input.inviteToken === rec.room.inviteToken;
+      if (!isInviteValid && rec.room.password !== input.password) {
+        throw new Error("密码错误");
+      }
+    }
+
+    const userId = nanoid(12);
+    const { roomId } = joinRoomById({
+      roomId: req.params.roomId,
+      user: { id: userId, displayName: input.displayName },
+    });
+    const token = signToken({ userId, roomId });
+    const state = buildState(roomId, userId);
+    res.json(ok({ roomId, token, state }));
+  } catch (e) {
+    res.status(400).json(err((e as Error).message));
+  }
+});
+
 app.get("/api/rooms/:roomId/public", (req, res) => {
   try {
     const rec = rooms.get(req.params.roomId);
@@ -146,6 +201,7 @@ app.get("/api/rooms/:roomId/public", (req, res) => {
         name: rec.room.name,
         code: rec.room.code,
         hostName: host?.displayName,
+        hasPassword: !!rec.room.password,
       }),
     );
   } catch (e) {

@@ -19,6 +19,8 @@ export interface Room {
   code: string;
   hostId: string;
   settings: RoomSettings;
+  password?: string;
+  inviteToken: string;
 }
 
 export interface Song {
@@ -52,6 +54,7 @@ export interface RoomStatePayload {
   members: UserSummary[];
   nowPlaying?: QueueItem;
   queue: QueueItem[];
+  history: QueueItem[];
   playback: PlaybackState;
 }
 

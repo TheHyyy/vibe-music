@@ -5,11 +5,18 @@ import type {
   RoomStatePayload,
   RoomSettings,
   Song,
+  RoomListItem,
 } from "@/types/api";
+
+export async function getRoomList(): Promise<ApiResult<RoomListItem[]>> {
+  const res = await http.get<ApiResult<RoomListItem[]>>("/api/rooms");
+  return res.data;
+}
 
 export async function createRoom(input: {
   name: string;
   displayName: string;
+  password?: string;
   settings?: Partial<RoomSettings>;
 }): Promise<
   ApiResult<{ roomId: string; token: string; state: RoomStatePayload }>
@@ -32,11 +39,38 @@ export async function joinRoom(input: {
   return res.data;
 }
 
+export async function joinRoomById(
+  roomId: string,
+  input: {
+    displayName: string;
+    password?: string;
+  },
+): Promise<
+  ApiResult<{ roomId: string; token: string; state: RoomStatePayload }>
+> {
+  const res = await http.post<
+    ApiResult<{ roomId: string; token: string; state: RoomStatePayload }>
+  >(`/api/rooms/${roomId}/join`, input);
+  return res.data;
+}
+
 export async function getPublicRoomInfo(
   roomId: string,
-): Promise<ApiResult<{ name: string; code: string; hostName?: string }>> {
+): Promise<
+  ApiResult<{
+    name: string;
+    code: string;
+    hostName?: string;
+    hasPassword: boolean;
+  }>
+> {
   const res = await http.get<
-    ApiResult<{ name: string; code: string; hostName?: string }>
+    ApiResult<{
+      name: string;
+      code: string;
+      hostName?: string;
+      hasPassword: boolean;
+    }>
   >(`/api/rooms/${roomId}/public`);
   return res.data;
 }

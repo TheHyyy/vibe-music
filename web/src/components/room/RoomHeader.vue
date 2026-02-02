@@ -54,8 +54,14 @@ async function copyRoomCode() {
 async function copyInviteLink() {
   const code = room.value?.code;
   const id = room.value?.id;
+  const token = room.value?.inviteToken;
   if (!code || !id) return;
-  const url = `${window.location.origin}/rooms/${id}`;
+
+  let url = `${window.location.origin}/rooms/${id}`;
+  if (token) {
+    url += `?invite=${token}`;
+  }
+
   const text = `🎵 来六人组 Music 一起听歌吧！\n👉 点击加入：${url}`;
   const ok = await copyText(text);
   if (ok) ElMessage.success("已复制邀请链接");

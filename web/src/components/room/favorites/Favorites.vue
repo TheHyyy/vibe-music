@@ -3,7 +3,7 @@ import { useFavorites } from "@/composables/useFavorites";
 import { useRoomSelector } from "@/stores/useRoomStore";
 import { addQueueItem } from "@/api/rooms";
 import { ElMessage } from "element-plus";
-import { Play, Trash2, Heart } from "lucide-vue-next";
+import { Plus, Trash2, Heart } from "lucide-vue-next";
 import type { Song } from "@/types/api";
 
 const { favorites, removeFavorite } = useFavorites();
@@ -67,7 +67,7 @@ async function addToQueue(song: Song) {
             title="点歌"
             @click="addToQueue(song)"
           >
-            <Play class="h-4 w-4 fill-current" />
+            <Plus class="h-4 w-4 fill-current" />
           </button>
           <button
             class="rounded-lg p-2 text-slate-400 hover:bg-red-500/20 hover:text-red-400 transition-colors"

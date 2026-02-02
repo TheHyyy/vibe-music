@@ -34,17 +34,7 @@ watch(
 </script>
 
 <template>
-  <div class="glass flex flex-col overflow-hidden rounded-2xl">
-    <div class="border-b border-white/5 px-4 py-3 shrink-0">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <ListMusic class="h-4 w-4 text-slate-400" />
-          <h3 class="font-semibold text-white">播放队列</h3>
-        </div>
-        <div class="text-[10px] text-slate-400">{{ queue.length }} 首待播</div>
-      </div>
-    </div>
-
+  <div class="flex flex-col h-full overflow-hidden">
     <div
       ref="listRef"
       class="flex-1 overflow-y-auto p-2 scrollbar-thin"

@@ -16,6 +16,7 @@ export interface RoomStoreState {
   members: UserSummary[];
   nowPlaying?: QueueItem;
   queue: QueueItem[];
+  history: QueueItem[];
   playback: PlaybackState;
   actionLoading: Record<string, boolean>;
   kicked?: { reason?: string };
@@ -24,6 +25,7 @@ export interface RoomStoreState {
     setToken(token: string): void;
     setActionLoading(key: string, loading: boolean): void;
     setQueue(queue: QueueItem[]): void;
+    setHistory(history: QueueItem[]): void;
     setPlayback(state: PlaybackState): void;
     addOptimisticQueueItem(song: Song): string;
     removeQueueItem(id: string): void;
@@ -40,6 +42,7 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
   members: [],
   nowPlaying: undefined,
   queue: [],
+  history: [],
   playback: { isPaused: true, startTime: 0 },
   actionLoading: {},
   kicked: undefined,
@@ -59,6 +62,7 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
         members: payload.members,
         nowPlaying: payload.nowPlaying,
         queue: mergedQueue,
+        history: payload.history || [],
         playback: payload.playback,
         kicked: undefined,
       });
@@ -77,6 +81,9 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
       const currentNowPlaying = get().nowPlaying;
       const mergedQueue = mergeQueue(queue, currentQueue, currentNowPlaying);
       set({ queue: mergedQueue });
+    },
+    setHistory(history) {
+      set({ history });
     },
     setPlayback(state) {
       set({ playback: state });
@@ -121,6 +128,7 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
         members: [],
         nowPlaying: undefined,
         queue: [],
+        history: [],
         playback: { isPaused: true, startTime: 0 },
         actionLoading: {},
         kicked: undefined,
