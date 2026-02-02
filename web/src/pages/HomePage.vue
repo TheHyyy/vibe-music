@@ -13,12 +13,7 @@ import {
   RefreshCw,
   KeyRound,
 } from "lucide-vue-next";
-import {
-  createRoom,
-  joinRoom,
-  getRoomList,
-  joinRoomById,
-} from "@/api/rooms";
+import { createRoom, joinRoom, getRoomList, joinRoomById } from "@/api/rooms";
 import type { RoomListItem } from "@/types/api";
 import { useRoomActions } from "@/stores/useRoomStore";
 import Button from "@/components/ui/Button.vue";
@@ -122,13 +117,17 @@ async function onJoinRoom(room: RoomListItem) {
   let password = "";
   if (room.hasPassword) {
     try {
-      const { value } = await ElMessageBox.prompt("请输入房间密码", "加密房间", {
-        confirmButtonText: "加入",
-        cancelButtonText: "取消",
-        inputType: "password",
-        inputPattern: /\S+/,
-        inputErrorMessage: "密码不能为空",
-      });
+      const { value } = await ElMessageBox.prompt(
+        "请输入房间密码",
+        "加密房间",
+        {
+          confirmButtonText: "加入",
+          cancelButtonText: "取消",
+          inputType: "password",
+          inputPattern: /\S+/,
+          inputErrorMessage: "密码不能为空",
+        },
+      );
       password = value;
     } catch {
       return; // Cancelled
@@ -139,12 +138,16 @@ async function onJoinRoom(room: RoomListItem) {
   let displayName = localStorage.getItem("echo_username") || "";
   if (!displayName) {
     try {
-      const { value } = await ElMessageBox.prompt("请输入你的昵称", "欢迎加入", {
-        confirmButtonText: "确定",
-        cancelButtonText: "取消",
-        inputPattern: /\S+/,
-        inputErrorMessage: "昵称不能为空",
-      });
+      const { value } = await ElMessageBox.prompt(
+        "请输入你的昵称",
+        "欢迎加入",
+        {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          inputPattern: /\S+/,
+          inputErrorMessage: "昵称不能为空",
+        },
+      );
       displayName = value;
       saveDisplayName(displayName);
     } catch {
@@ -182,8 +185,9 @@ async function onJoinRoom(room: RoomListItem) {
     </div>
 
     <!-- Main Content -->
-    <div class="relative z-10 w-full max-w-4xl px-4 py-8 flex flex-col md:flex-row gap-8">
-
+    <div
+      class="relative z-10 w-full max-w-4xl px-4 py-8 flex flex-col md:flex-row gap-8"
+    >
       <!-- Left Column: Actions -->
       <div class="w-full md:w-1/3 flex flex-col gap-6">
         <!-- Logo/Header -->
@@ -194,7 +198,9 @@ async function onJoinRoom(room: RoomListItem) {
             >
               <Music2 class="h-6 w-6 text-white" />
             </div>
-            <h1 class="ml-3 text-2xl font-bold tracking-tight text-white drop-shadow-sm">
+            <h1
+              class="ml-3 text-2xl font-bold tracking-tight text-white drop-shadow-sm"
+            >
               六人组 Music
             </h1>
           </div>
@@ -214,9 +220,7 @@ async function onJoinRoom(room: RoomListItem) {
             </div>
             <div>
               <div class="font-semibold text-white">创建新房间</div>
-              <div class="text-xs text-slate-400">
-                成为 Host，邀请好友
-              </div>
+              <div class="text-xs text-slate-400">成为 Host，邀请好友</div>
             </div>
           </button>
 
@@ -237,7 +241,10 @@ async function onJoinRoom(room: RoomListItem) {
         </div>
 
         <!-- Create Form -->
-        <div v-else-if="mode === 'create'" class="glass rounded-2xl p-6 animate-in fade-in slide-in-from-bottom-4">
+        <div
+          v-else-if="mode === 'create'"
+          class="glass rounded-2xl p-6 animate-in fade-in slide-in-from-bottom-4"
+        >
           <div class="mb-6 flex items-center justify-between">
             <h2 class="text-lg font-semibold">创建房间</h2>
             <button
@@ -267,7 +274,9 @@ async function onJoinRoom(room: RoomListItem) {
               />
             </div>
             <div class="space-y-1">
-              <label class="text-xs font-medium text-slate-400">房间密码 (可选)</label>
+              <label class="text-xs font-medium text-slate-400"
+                >房间密码 (可选)</label
+              >
               <Input
                 v-model="createForm.password"
                 :icon="KeyRound"
@@ -288,7 +297,10 @@ async function onJoinRoom(room: RoomListItem) {
         </div>
 
         <!-- Join Form (By Code) -->
-        <div v-else-if="mode === 'join'" class="glass rounded-2xl p-6 animate-in fade-in slide-in-from-bottom-4">
+        <div
+          v-else-if="mode === 'join'"
+          class="glass rounded-2xl p-6 animate-in fade-in slide-in-from-bottom-4"
+        >
           <div class="mb-6 flex items-center justify-between">
             <h2 class="text-lg font-semibold">加入房间</h2>
             <button
@@ -335,8 +347,12 @@ async function onJoinRoom(room: RoomListItem) {
       </div>
 
       <!-- Right Column: Room List -->
-      <div class="w-full md:w-2/3 flex flex-col h-[500px] glass rounded-2xl overflow-hidden">
-        <div class="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/30">
+      <div
+        class="w-full md:w-2/3 flex flex-col h-[500px] glass rounded-2xl overflow-hidden"
+      >
+        <div
+          class="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/30"
+        >
           <h2 class="font-semibold flex items-center gap-2">
             <Radio class="w-4 h-4 text-emerald-400" />
             正在进行的派对
@@ -351,10 +367,16 @@ async function onJoinRoom(room: RoomListItem) {
         </div>
 
         <div class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-          <div v-if="loadingList && roomList.length === 0" class="text-center py-10 text-slate-400">
+          <div
+            v-if="loadingList && roomList.length === 0"
+            class="text-center py-10 text-slate-400"
+          >
             加载中...
           </div>
-          <div v-else-if="roomList.length === 0" class="text-center py-10 text-slate-400 flex flex-col items-center gap-2">
+          <div
+            v-else-if="roomList.length === 0"
+            class="text-center py-10 text-slate-400 flex flex-col items-center gap-2"
+          >
             <Music2 class="w-8 h-8 opacity-20" />
             <p>暂无活跃房间，快去创建一个吧！</p>
           </div>
@@ -366,18 +388,25 @@ async function onJoinRoom(room: RoomListItem) {
             @click="onJoinRoom(room)"
           >
             <div class="flex items-center gap-4">
-              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-indigo-300">
+              <div
+                class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-indigo-300"
+              >
                 <Lock v-if="room.hasPassword" class="w-5 h-5" />
                 <Music2 v-else class="w-5 h-5" />
               </div>
               <div>
                 <div class="font-medium text-white flex items-center gap-2">
                   {{ room.name }}
-                  <span v-if="room.nowPlaying" class="text-xs px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/20">
+                  <span
+                    v-if="room.nowPlaying"
+                    class="text-xs px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
+                  >
                     Playing
                   </span>
                 </div>
-                <div class="text-xs text-slate-400 flex items-center gap-2 mt-1">
+                <div
+                  class="text-xs text-slate-400 flex items-center gap-2 mt-1"
+                >
                   <User class="w-3 h-3" /> {{ room.hostName }}
                   <span class="w-1 h-1 rounded-full bg-slate-600"></span>
                   <span v-if="room.nowPlaying" class="truncate max-w-[150px]">
@@ -389,22 +418,27 @@ async function onJoinRoom(room: RoomListItem) {
             </div>
 
             <div class="flex items-center gap-4">
-              <div class="flex items-center gap-1 text-xs text-slate-400 bg-black/20 px-2 py-1 rounded-full">
+              <div
+                class="flex items-center gap-1 text-xs text-slate-400 bg-black/20 px-2 py-1 rounded-full"
+              >
                 <Users class="w-3 h-3" />
                 {{ room.memberCount }}
               </div>
-              <Button size="sm" variant="ghost" class="opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button
+                size="sm"
+                variant="ghost"
+                class="opacity-0 group-hover:opacity-100 transition-opacity"
+              >
                 加入
               </Button>
             </div>
           </div>
         </div>
       </div>
-
     </div>
 
     <div class="absolute bottom-6 text-xs text-white/20">
-      六人组 Music · v0.1.0
+      六人组 Music · v0.7.0
     </div>
   </div>
 </template>
@@ -424,4 +458,3 @@ async function onJoinRoom(room: RoomListItem) {
   background: rgba(255, 255, 255, 0.2);
 }
 </style>
-
