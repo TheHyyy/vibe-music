@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, provide, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, provide, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import useSWRV from "swrv";
 import { ElMessage } from "element-plus";
@@ -21,7 +21,26 @@ const actions = useRoomActions();
 const roomId = computed(() => String(route.params.roomId || ""));
 const kicked = useRoomSelector((s) => s.kicked);
 const queue = useRoomSelector((s) => s.queue);
+const nowPlaying = useRoomSelector((s) => s.nowPlaying);
 const showJoinDialog = ref(false);
+
+// Update document title based on nowPlaying
+watch(
+  () => nowPlaying.value,
+  (val) => {
+    if (val) {
+      document.title = `${val.song.title} - ${val.song.artist} | 六人组 Music`;
+    } else {
+      document.title = "六人组 Music";
+    }
+  },
+  { immediate: true },
+);
+
+// Restore title on unmount
+onUnmounted(() => {
+  document.title = "六人组 Music";
+});
 
 // Mobile Tabs: 'player' | 'queue' | 'members'
 const activeTab = ref<"player" | "queue" | "members">("player");
