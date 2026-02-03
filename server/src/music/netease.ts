@@ -94,7 +94,7 @@ export class NeteaseProvider implements MusicProvider {
         throw new Error(`无法播放 (Code: ${data.code}, Fee: ${data.fee})`);
       }
 
-      return data.url;
+      return data.url.replace(/^http:/, "https:");
     } catch (e) {
       console.error("Netease getPlayUrl error:", e);
       // Re-throw if it's our custom error

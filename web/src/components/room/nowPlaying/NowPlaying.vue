@@ -34,7 +34,7 @@ const audioRef = ref<HTMLAudioElement | null>(null);
 const isPlaying = ref(false);
 const currentTime = ref(0);
 const duration = ref(0);
-const audioUrl = ref("");
+const audioUrl = ref<string | undefined>(undefined);
 const volume = ref(Number(localStorage.getItem("echo_volume") ?? 1));
 const isMuted = ref(false);
 const prevVolume = ref(1);
@@ -72,7 +72,7 @@ function formatTime(seconds: number) {
 
 async function loadAndPlay() {
   if (!nowPlaying.value) {
-    audioUrl.value = "";
+    audioUrl.value = undefined;
     currentTime.value = 0;
     duration.value = 0;
     lyrics.value = [];
@@ -364,6 +364,7 @@ async function voteSkip() {
 <template>
   <div class="flex flex-col gap-4 min-h-0">
     <audio
+      v-if="audioUrl"
       ref="audioRef"
       :src="audioUrl"
       @timeupdate="onTimeUpdate"
@@ -374,6 +375,7 @@ async function voteSkip() {
       @seeked="onSeeked"
       @loadedmetadata="onLoadedMetadata"
       preload="auto"
+      referrerpolicy="no-referrer"
     ></audio>
 
     <!-- Player Card -->
