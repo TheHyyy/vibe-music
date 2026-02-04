@@ -13,6 +13,7 @@ import BarrageContainer from "@/components/room/barrage/BarrageContainer.vue";
 import { getRoomState } from "@/api/rooms";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import type { ChatMessage } from "@/types/api";
 
 const route = useRoute();
 const router = useRouter();
@@ -48,6 +49,19 @@ const activeTab = ref<"player" | "queue" | "members">("player");
 const wsClient = useWebSocket(roomId.value);
 provide("socketClient", wsClient);
 const { connect } = wsClient;
+
+// Global Chat Listener
+watch(
+  () => wsClient.socket.value,
+  (socket) => {
+    if (socket) {
+      socket.on("chat:message", (msg: ChatMessage) => {
+        actions.addMessage(msg);
+      });
+    }
+  },
+  { immediate: true },
+);
 
 const {
   data: stateRes,

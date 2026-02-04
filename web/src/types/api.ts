@@ -82,3 +82,12 @@ export interface ServerConfig {
   enableQQ: boolean;
   enableMigu: boolean;
 }
+
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  displayName: string;
+  content: string;
+  timestamp: number;
+  type?: "USER" | "SYSTEM";
+}

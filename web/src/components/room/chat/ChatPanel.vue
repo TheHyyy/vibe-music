@@ -5,18 +5,9 @@ import { animalAvatarUrl } from "@/lib/utils";
 import type { WebSocketClient } from "@/hooks/useWebSocket";
 import { useRoomSelector } from "@/stores/useRoomStore";
 
-interface ChatMessage {
-  id: string;
-  userId: string;
-  displayName: string;
-  content: string;
-  timestamp: number;
-  type?: "USER" | "SYSTEM";
-}
-
 const socketClient = inject<WebSocketClient>("socketClient");
 const currentUser = useRoomSelector((s) => s.currentUser);
-const messages = ref<ChatMessage[]>([]);
+const messages = useRoomSelector((s) => s.messages);
 const inputValue = ref("");
 const messagesEndRef = ref<HTMLElement | null>(null);
 
@@ -26,13 +17,6 @@ function scrollToBottom() {
       messagesEndRef.value.scrollIntoView({ behavior: "smooth" });
     }
   });
-}
-
-function onMessage(msg: ChatMessage) {
-  messages.value.push(msg);
-  if (msg.userId === currentUser.value?.id) {
-    scrollToBottom();
-  }
 }
 
 function sendMessage() {
@@ -63,22 +47,14 @@ function sendReaction() {
   socketClient.emit("room:reaction", { emoji });
 }
 
-// Watch for socket connection to bind listeners
+// Watch messages to auto-scroll
 watch(
-  () => socketClient?.socket.value,
-  (socket) => {
-    if (socket) {
-      socket.on("chat:message", onMessage);
-    }
+  () => messages.value.length,
+  () => {
+    scrollToBottom();
   },
-  { immediate: true },
+  { immediate: true }
 );
-
-onUnmounted(() => {
-  if (socketClient?.socket.value) {
-    socketClient.socket.value.off("chat:message", onMessage);
-  }
-});
 </script>
 
 <template>

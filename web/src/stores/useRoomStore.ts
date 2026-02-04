@@ -7,6 +7,7 @@ import type {
   RoomStatePayload,
   Song,
   UserSummary,
+  ChatMessage,
 } from "@/types/api";
 
 export interface RoomStoreState {
@@ -17,6 +18,7 @@ export interface RoomStoreState {
   nowPlaying?: QueueItem;
   queue: QueueItem[];
   history: QueueItem[];
+  messages: ChatMessage[];
   playback: PlaybackState;
   actionLoading: Record<string, boolean>;
   kicked?: { reason?: string };
@@ -26,6 +28,7 @@ export interface RoomStoreState {
     setActionLoading(key: string, loading: boolean): void;
     setQueue(queue: QueueItem[]): void;
     setHistory(history: QueueItem[]): void;
+    addMessage(message: ChatMessage): void;
     setPlayback(state: PlaybackState): void;
     addOptimisticQueueItem(song: Song): string;
     removeQueueItem(id: string): void;
@@ -43,6 +46,7 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
   nowPlaying: undefined,
   queue: [],
   history: [],
+  messages: [],
   playback: { isPaused: true, startTime: 0 },
   actionLoading: {},
   kicked: undefined,
@@ -84,6 +88,9 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
     },
     setHistory(history) {
       set({ history });
+    },
+    addMessage(message) {
+      set({ messages: [...get().messages, message] });
     },
     setPlayback(state) {
       set({ playback: state });
@@ -129,6 +136,7 @@ export const roomStore = createStore<RoomStoreState>((set, get) => ({
         nowPlaying: undefined,
         queue: [],
         history: [],
+        messages: [],
         playback: { isPaused: true, startTime: 0 },
         actionLoading: {},
         kicked: undefined,
