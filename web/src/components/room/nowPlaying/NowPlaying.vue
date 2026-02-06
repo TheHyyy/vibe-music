@@ -42,6 +42,9 @@ const isEnding = ref(false);
 const retryCount = ref(0);
 const autoplayFailed = ref(false);
 
+// Ensure we only report "ended" once per nowPlaying item.
+const endedReportedForItemId = ref<string | null>(null);
+
 // Lyrics state
 const showLyrics = ref(false);
 const lyrics = ref<LrcLine[]>([]);
@@ -127,6 +130,7 @@ watch(
   (newId, oldId) => {
     if (newId !== oldId) {
       isEnding.value = false;
+      endedReportedForItemId.value = null;
       retryCount.value = 0;
       loadAndPlay();
     }
@@ -239,17 +243,25 @@ function scrollToCurrentLine() {
 }
 
 async function onEnded() {
+  const itemId = nowPlaying.value?.id;
+  if (!roomId.value || !itemId) return;
+
+  // Guard against duplicate ended events / duplicate listeners.
+  if (endedReportedForItemId.value === itemId) return;
+  endedReportedForItemId.value = itemId;
+
   if (isEnding.value) return;
+  isEnding.value = true;
   isPlaying.value = false;
+
   // Auto next for everyone (server validates)
-  if (roomId.value && nowPlaying.value) {
-    isEnding.value = true;
-    try {
-      await reportEnded(roomId.value, nowPlaying.value.id);
-    } catch (e) {
-      console.error("Auto-next failed:", e);
-      isEnding.value = false;
-    }
+  try {
+    await reportEnded(roomId.value, itemId);
+  } catch (e) {
+    console.error("Auto-next failed:", e);
+    // allow retry if request failed
+    endedReportedForItemId.value = null;
+    isEnding.value = false;
   }
 }
 
@@ -326,7 +338,7 @@ function onSeeked() {
 
 function retryPlay() {
   if (audioRef.value) {
-    audioRef.value.play().catch((e) => {
+    audioRef.value.play().catch(() => {
       ElMessage.error("播放失败，请检查设备权限");
     });
   }

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUpdate, ref, watch } from "vue";
-import { ListMusic } from "lucide-vue-next";
 import QueueItem from "@/components/room/queue/QueueItem.vue";
 import { useRoomSelector } from "@/stores/useRoomStore";
 

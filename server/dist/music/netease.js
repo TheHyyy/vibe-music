@@ -88,7 +88,7 @@ export class NeteaseProvider {
                     throw new Error("无权播放 (VIP/付费/无版权)");
                 throw new Error(`无法播放 (Code: ${data.code}, Fee: ${data.fee})`);
             }
-            return data.url;
+            return data.url.replace(/^http:/, "https:");
         }
         catch (e) {
             console.error("Netease getPlayUrl error:", e);

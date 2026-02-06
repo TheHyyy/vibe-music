@@ -8,6 +8,7 @@ import { z } from "zod";
 import path from "path";
 import { fileURLToPath } from "url";
 import { signToken, verifyToken } from "./auth.js";
+import { logSongRequestedFromHttp } from "./eventLog.js";
 import {
   addQueueItem,
   applyVote,
@@ -234,6 +235,14 @@ app.post("/api/rooms/:roomId/queue", (req, res) => {
     if (!user) throw new Error("未加入房间");
     const song = input.song as Song;
 
+    void logSongRequestedFromHttp({
+      req,
+      roomId,
+      userId,
+      username: user.displayName,
+      song: { title: song.title, artist: song.artist },
+    }).catch((e) => console.error("[EventLog] song.requested failed", e));
+
     // 记录旧的 nowPlaying ID，用于判断是否需要全量广播
     const oldNowPlayingId = rec.nowPlaying?.id;
 
@@ -422,9 +431,9 @@ app.post("/api/rooms/:roomId/ended", async (req, res) => {
 
     const input = z.object({ songId: z.string() }).parse(req.body);
 
-    // Verify if the song requesting to end is actually the one playing
+    // Idempotency: only advance if the ended song is still the one playing.
+    // A duplicate ended request arriving after we already advanced must be a no-op.
     if (!rec.nowPlaying || rec.nowPlaying.id !== input.songId) {
-      // It might have been skipped already
       res.json(ok({ skipped: false, reason: "Already skipped" }));
       return;
     }

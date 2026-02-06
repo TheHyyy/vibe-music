@@ -8,7 +8,8 @@ import { z } from "zod";
 import path from "path";
 import { fileURLToPath } from "url";
 import { signToken, verifyToken } from "./auth.js";
-import { addQueueItem, applyVote, cancelLeave, createRoom, joinRoom, nextSong, removeMember, roomRole, roomStateForUser, rooms, scheduleLeave, updatePlayback, updateSettings, } from "./store.js";
+import { logSongRequestedFromHttp } from "./eventLog.js";
+import { addQueueItem, applyVote, cancelLeave, createRoom, joinRoom, joinRoomById, nextSong, removeMember, roomRole, roomStateForUser, rooms, scheduleLeave, updatePlayback, updateSettings, } from "./store.js";
 import { searchMusic, getPlayUrl, getLyric, getHotRecommendation, } from "./music/service.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,6 +57,7 @@ function buildState(roomId, userId) {
 const createRoomSchema = z.object({
     name: z.string().min(1).max(120),
     displayName: z.string().min(1).max(80),
+    password: z.string().optional(),
     settings: z
         .object({
         allowAnonymous: z.boolean().optional(),
@@ -65,6 +67,20 @@ const createRoomSchema = z.object({
     })
         .optional(),
 });
+app.get("/api/rooms", (req, res) => {
+    const list = Array.from(rooms.values()).map((rec) => {
+        const host = Array.from(rec.members.values()).find((m) => m.role === "HOST");
+        return {
+            id: rec.room.id,
+            name: rec.room.name,
+            hostName: host?.displayName || "Unknown",
+            memberCount: rec.members.size,
+            hasPassword: !!rec.room.password,
+            nowPlaying: rec.nowPlaying?.song,
+        };
+    });
+    res.json(ok(list));
+});
 app.post("/api/rooms", (req, res) => {
     try {
         const input = createRoomSchema.parse(req.body);
@@ -72,6 +88,7 @@ app.post("/api/rooms", (req, res) => {
         const { roomId, host } = createRoom({
             name: input.name,
             host: { id: userId, displayName: input.displayName },
+            password: input.password,
         });
         if (input.settings)
             updateSettings(roomId, input.settings);
@@ -105,6 +122,38 @@ app.post("/api/rooms/join", (req, res) => {
         res.status(400).json(err(e.message));
     }
 });
+app.post("/api/rooms/:roomId/join", (req, res) => {
+    try {
+        const input = z
+            .object({
+            displayName: z.string().min(1).max(80),
+            password: z.string().optional(),
+            inviteToken: z.string().optional(),
+        })
+            .parse(req.body);
+        const rec = rooms.get(req.params.roomId);
+        if (!rec)
+            throw new Error("房间不存在");
+        // Check password if not invited via valid token
+        if (rec.room.password) {
+            const isInviteValid = input.inviteToken && input.inviteToken === rec.room.inviteToken;
+            if (!isInviteValid && rec.room.password !== input.password) {
+                throw new Error("密码错误");
+            }
+        }
+        const userId = nanoid(12);
+        const { roomId } = joinRoomById({
+            roomId: req.params.roomId,
+            user: { id: userId, displayName: input.displayName },
+        });
+        const token = signToken({ userId, roomId });
+        const state = buildState(roomId, userId);
+        res.json(ok({ roomId, token, state }));
+    }
+    catch (e) {
+        res.status(400).json(err(e.message));
+    }
+});
 app.get("/api/rooms/:roomId/public", (req, res) => {
     try {
         const rec = rooms.get(req.params.roomId);
@@ -115,6 +164,7 @@ app.get("/api/rooms/:roomId/public", (req, res) => {
             name: rec.room.name,
             code: rec.room.code,
             hostName: host?.displayName,
+            hasPassword: !!rec.room.password,
         }));
     }
     catch (e) {
@@ -153,6 +203,13 @@ app.post("/api/rooms/:roomId/queue", (req, res) => {
         if (!user)
             throw new Error("未加入房间");
         const song = input.song;
+        void logSongRequestedFromHttp({
+            req,
+            roomId,
+            userId,
+            username: user.displayName,
+            song: { title: song.title, artist: song.artist },
+        }).catch((e) => console.error("[EventLog] song.requested failed", e));
         // 记录旧的 nowPlaying ID，用于判断是否需要全量广播
         const oldNowPlayingId = rec.nowPlaying?.id;
         const item = addQueueItem(roomId, user, song);
@@ -320,9 +377,9 @@ app.post("/api/rooms/:roomId/ended", async (req, res) => {
         if (!rec)
             throw new Error("房间不存在");
         const input = z.object({ songId: z.string() }).parse(req.body);
-        // Verify if the song requesting to end is actually the one playing
+        // Idempotency: only advance if the ended song is still the one playing.
+        // A duplicate ended request arriving after we already advanced must be a no-op.
         if (!rec.nowPlaying || rec.nowPlaying.id !== input.songId) {
-            // It might have been skipped already
             res.json(ok({ skipped: false, reason: "Already skipped" }));
             return;
         }

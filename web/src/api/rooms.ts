@@ -44,6 +44,7 @@ export async function joinRoomById(
   input: {
     displayName: string;
     password?: string;
+    inviteToken?: string;
   },
 ): Promise<
   ApiResult<{ roomId: string; token: string; state: RoomStatePayload }>

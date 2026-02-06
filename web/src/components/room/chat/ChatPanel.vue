@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, onUnmounted, nextTick, inject, watch } from "vue";
+import { ref, nextTick, inject, watch } from "vue";
 import { Send, MessageSquare } from "lucide-vue-next";
 import { animalAvatarUrl } from "@/lib/utils";
 import type { WebSocketClient } from "@/hooks/useWebSocket";
 import { useRoomSelector } from "@/stores/useRoomStore";
 
 const socketClient = inject<WebSocketClient>("socketClient");
-const currentUser = useRoomSelector((s) => s.currentUser);
 const messages = useRoomSelector((s) => s.messages);
 const inputValue = ref("");
 const messagesEndRef = ref<HTMLElement | null>(null);

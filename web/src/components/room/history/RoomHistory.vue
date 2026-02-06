@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import { ElMessage } from "element-plus";
 import { Disc3, Plus, History, Heart } from "lucide-vue-next";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
