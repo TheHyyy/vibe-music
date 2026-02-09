@@ -9,6 +9,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { signToken, verifyToken } from "./auth.js";
 import { logSongRequestedFromHttp } from "./eventLog.js";
+import { analyzeDailyReportWithAi } from "./integrations/ai.js";
+import { sendFeishuWebhookText } from "./integrations/feishu.js";
+import { renderAdminPage } from "./adminPage.js";
+import { aiChatOnce } from "./integrations/aiRaw.js";
 import {
   addQueueItem,
   applyVote,
@@ -25,6 +29,8 @@ import {
   updatePlayback,
   updateSettings,
 } from "./store.js";
+import { calcDailyRoomStats, readRoomEventsJsonl, renderDailyText } from "./reports/daily.js";
+import { calcDailyAllRoomsStats, renderDailyAllText } from "./reports/dailyAll.js";
 import {
   searchMusic,
   getPlayUrl,
@@ -241,7 +247,14 @@ app.post("/api/rooms/:roomId/queue", (req, res) => {
       userId,
       username: user.displayName,
       song: { title: song.title, artist: song.artist },
-    }).catch((e) => console.error("[EventLog] song.requested failed", e));
+    }).catch((e) =>
+      console.error(
+        "[EventLog] song.requested failed",
+        e,
+        "cwd=",
+        process.cwd(),
+      ),
+    );
 
     // 记录旧的 nowPlaying ID，用于判断是否需要全量广播
     const oldNowPlayingId = rec.nowPlaying?.id;
@@ -485,6 +498,79 @@ app.post("/api/rooms/:roomId/admin/kick", async (req, res) => {
   }
 });
 
+app.post("/api/reports/daily", async (req, res) => {
+  try {
+    const input = z
+      .object({
+        roomId: z.string().min(1),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        push: z.boolean().optional(),
+      })
+      .parse(req.body);
+
+    const events = await readRoomEventsJsonl(input.date);
+    const stats = calcDailyRoomStats({ roomId: input.roomId, date: input.date, events });
+    const rawText = renderDailyText(stats);
+
+    const aiText = await analyzeDailyReportWithAi({
+      date: input.date,
+      roomId: input.roomId,
+      rawTextReport: rawText,
+    });
+
+    if (input.push) {
+      const webhookUrl = (process.env.FEISHU_WEBHOOK_URL || "").trim();
+      if (!webhookUrl) throw new Error("Missing env: FEISHU_WEBHOOK_URL");
+      await sendFeishuWebhookText({ webhookUrl, text: aiText });
+    }
+
+    res.json(ok({ stats, text: aiText }));
+  } catch (e) {
+    res.status(400).json(err((e as Error).message));
+  }
+});
+
+app.post("/api/reports/daily/push-all", async (req, res) => {
+  try {
+    const input = z
+      .object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        push: z.boolean().optional(),
+      })
+      .parse(req.body || {});
+
+    const date =
+      input.date ||
+      (() => {
+        const d = new Date();
+        const yyyy = String(d.getFullYear());
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      })();
+
+    const events = await readRoomEventsJsonl(date);
+    const stats = calcDailyAllRoomsStats({ date, events });
+    const rawText = renderDailyAllText(stats);
+
+    const aiText = await analyzeDailyReportWithAi({
+      date,
+      roomId: "ALL",
+      rawTextReport: rawText,
+    });
+
+    if (input.push !== false) {
+      const webhookUrl = (process.env.FEISHU_WEBHOOK_URL || "").trim();
+      if (!webhookUrl) throw new Error("Missing env: FEISHU_WEBHOOK_URL");
+      await sendFeishuWebhookText({ webhookUrl, text: aiText });
+    }
+
+    res.json(ok({ stats, text: aiText }));
+  } catch (e) {
+    res.status(400).json(err((e as Error).message));
+  }
+});
+
 app.get("/api/songs/search", async (req, res) => {
   const q = String(req.query.q || "").trim();
   const page = Number(req.query.page) || 1;
@@ -542,6 +628,57 @@ app.get("/api/config", (req, res) => {
       enableMigu: process.env.ENABLE_MIGU_MUSIC !== "false",
     }),
   );
+});
+
+app.get("/api/debug/ai-config", (req, res) => {
+  const token = (process.env.ADMIN_TOKEN || "").trim();
+  if (token && String(req.query.token || "") !== token) {
+    res.status(404).send("Not Found");
+    return;
+  }
+
+  const provider = (process.env.AI_PROVIDER || "").trim();
+  const baseUrl = (process.env.AI_BASE_URL || "").trim();
+  const model = (process.env.AI_MODEL || "").trim();
+  const apiKey = (process.env.AI_API_KEY || "").trim();
+
+  res.json(
+    ok({
+      provider,
+      baseUrl,
+      model,
+      hasApiKey: Boolean(apiKey),
+      apiKeyPrefix: apiKey ? apiKey.slice(0, 3) : "",
+      apiKeySuffix: apiKey ? apiKey.slice(-4) : "",
+    }),
+  );
+});
+
+app.post("/api/debug/ai-chat", async (req, res) => {
+  const token = (process.env.ADMIN_TOKEN || "").trim();
+  if (token && String(req.query.token || "") !== token) {
+    res.status(404).send("Not Found");
+    return;
+  }
+
+  try {
+    const input = z.object({ message: z.string().min(1).max(4000) }).parse(req.body);
+    const text = await aiChatOnce({ message: input.message });
+    res.json(ok({ text }));
+  } catch (e) {
+    res.status(400).json(err((e as Error).message));
+  }
+});
+
+app.get("/__admin", (req, res) => {
+  const token = (process.env.ADMIN_TOKEN || "").trim();
+  if (token && String(req.query.token || "") !== token) {
+    res.status(404).send("Not Found");
+    return;
+  }
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(renderAdminPage());
 });
 
 // SPA Fallback: 所有未匹配 API 的 GET 请求返回 index.html
