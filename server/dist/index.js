@@ -1,4 +1,5 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 import cors from "cors";
 import { createServer } from "http";
@@ -13,6 +14,7 @@ import { analyzeDailyReportWithAi } from "./integrations/ai.js";
 import { sendFeishuWebhookText } from "./integrations/feishu.js";
 import { renderAdminPage } from "./adminPage.js";
 import { aiChatOnce } from "./integrations/aiRaw.js";
+import { aiChatOnceStream } from "./integrations/aiRawStream.js";
 import { addQueueItem, applyVote, cancelLeave, createRoom, joinRoom, joinRoomById, nextSong, removeMember, roomRole, roomStateForUser, rooms, scheduleLeave, updatePlayback, updateSettings, } from "./store.js";
 import { calcDailyRoomStats, readRoomEventsJsonl, renderDailyText } from "./reports/daily.js";
 import { calcDailyAllRoomsStats, renderDailyAllText } from "./reports/dailyAll.js";
@@ -571,6 +573,8 @@ app.get("/api/debug/ai-config", (req, res) => {
         hasApiKey: Boolean(apiKey),
         apiKeyPrefix: apiKey ? apiKey.slice(0, 3) : "",
         apiKeySuffix: apiKey ? apiKey.slice(-4) : "",
+        maxTokens: (process.env.AI_MAX_TOKENS || "").trim() || undefined,
+        timeoutMs: (process.env.AI_TIMEOUT_MS || "").trim() || undefined,
     }));
 });
 app.post("/api/debug/ai-chat", async (req, res) => {
@@ -580,9 +584,21 @@ app.post("/api/debug/ai-chat", async (req, res) => {
         return;
     }
     try {
-        const input = z.object({ message: z.string().min(1).max(4000) }).parse(req.body);
-        const text = await aiChatOnce({ message: input.message });
-        res.json(ok({ text }));
+        const input = z
+            .object({
+            message: z.string().min(1).max(4000),
+            reasoningContentEnabled: z.boolean().optional(),
+            useStream: z.boolean().optional(),
+        })
+            .parse(req.body);
+        const startedAt = Date.now();
+        const useStream = input.useStream ?? true;
+        const text = await (useStream ? aiChatOnceStream : aiChatOnce)({
+            message: input.message,
+            reasoningContentEnabled: input.reasoningContentEnabled,
+            debug: { maxTokens: 256, timeoutMs: 180000 },
+        });
+        res.json(ok({ text, elapsedMs: Date.now() - startedAt, debug: { usedStream: useStream } }));
     }
     catch (e) {
         res.status(400).json(err(e.message));

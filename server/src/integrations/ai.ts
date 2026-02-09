@@ -59,7 +59,12 @@ async function callOpenAiCompatible(input: AiDailyAnalysisInput) {
   if (!model) throw new Error("Missing env: AI_MODEL");
   if (!apiKey) throw new Error("Missing env: AI_API_KEY");
 
-  const temperature = envNumber("AI_TEMPERATURE", 0.4);
+  const modelLower = model.toLowerCase();
+  const isAzureOpenAi = modelLower.startsWith("azure_openai/");
+  const effectiveModel = isAzureOpenAi ? model.split("/")[1] || model : model;
+
+  const omitTemperature = effectiveModel.toLowerCase().includes("gpt-5");
+  const temperature = envNumber("AI_TEMPERATURE", 1);
   const maxTokens = envNumber("AI_MAX_TOKENS", 1200);
 
   const prompt = buildPrompt(input);
@@ -76,11 +81,13 @@ async function callOpenAiCompatible(input: AiDailyAnalysisInput) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
           "api-key": apiKey,
+          ...(isAzureOpenAi ? { "X-Model-Provider-Id": "azure_openai" } : {}),
         },
         body: JSON.stringify({
-          model,
-          temperature,
+          model: effectiveModel,
+          ...(omitTemperature ? {} : { temperature }),
           max_tokens: maxTokens,
+          mify_extra: { reasoning_content_enabled: false },
           messages: [
             { role: "system", content: "你是一个严谨但有温度的日报编辑。" },
             { role: "user", content: prompt },

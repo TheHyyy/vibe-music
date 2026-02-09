@@ -44,6 +44,14 @@ export function renderAdminPage() {
           <div class="muted">输入一句话测试模型（不会写入日报日志）</div>
           <input id="chatInput" placeholder="比如：用一句话总结今天的点歌氛围" style="width:100%;" />
         </label>
+        <label style="display:flex; align-items:center; gap:8px;">
+          <input id="thinkingEnabled" type="checkbox" checked />
+          <span class="muted">reasoning_content_enabled</span>
+        </label>
+        <label style="display:flex; align-items:center; gap:8px;">
+          <input id="useStream" type="checkbox" checked />
+          <span class="muted">stream</span>
+        </label>
         <button id="btnChat">发送</button>
       </div>
       <p class="muted">调用：POST /api/debug/ai-chat</p>
@@ -58,6 +66,8 @@ export function renderAdminPage() {
   const chatOut = document.getElementById('chatOut');
   const dateEl = document.getElementById('date');
   const chatInput = document.getElementById('chatInput');
+  const thinkingEnabled = document.getElementById('thinkingEnabled');
+  const useStream = document.getElementById('useStream');
 
   async function call(push) {
     out.textContent = '请求中...';
@@ -96,7 +106,11 @@ export function renderAdminPage() {
     const res = await fetch('/api/debug/ai-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({
+        message,
+        reasoningContentEnabled: !!thinkingEnabled.checked,
+        useStream: !!useStream.checked,
+      }),
     });
 
     const json = await res.json().catch(() => null);
