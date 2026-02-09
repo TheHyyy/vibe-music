@@ -9,22 +9,40 @@ const providerMode = String(process.env.ECHO_MUSIC_PROVIDER || "")
   .trim()
   .toUpperCase();
 
-// 控制是否启用 QQ 音乐（可通过环境变量配置）
-const enableQQ = process.env.ENABLE_QQ_MUSIC === "true";
-// 控制是否启用 Migu 音乐（默认开启，除非显式设置为 false）
-const enableMigu = process.env.ENABLE_MIGU_MUSIC !== "false";
+function isEnabledEnvTrue(name: string) {
+  return String(process.env[name] || "")
+    .trim()
+    .toLowerCase() === "true";
+}
 
-const providers: MusicProvider[] =
-  providerMode === "MOCK"
-    ? [new MockProvider()]
-    : [
-        new NeteaseProvider(),
-        ...(enableMigu ? [new MiguProvider()] : []),
-        ...(enableQQ ? [new QQProvider()] : []),
-      ];
+function isEnabledEnvFalse(name: string) {
+  return String(process.env[name] || "")
+    .trim()
+    .toLowerCase() === "false";
+}
+
+// 控制是否启用 QQ 音乐（可通过环境变量配置）
+const enableQQ = isEnabledEnvTrue("ENABLE_QQ_MUSIC");
+// 控制是否启用 Migu 音乐（默认关闭，除非显式设置为 true）
+const enableMigu = isEnabledEnvTrue("ENABLE_MIGU_MUSIC");
+
+function buildProviders(): MusicProvider[] {
+  if (providerMode === "MOCK") return [new MockProvider()];
+
+  const list: MusicProvider[] = [new NeteaseProvider()];
+  if (enableMigu) list.push(new MiguProvider());
+  if (enableQQ) list.push(new QQProvider());
+  return list;
+}
+
+function getProviders() {
+  // 防止热更新 / 多进程场景下 module scope 读到旧的 env
+  return buildProviders();
+}
 
 export async function searchMusic(query: string, page = 1): Promise<Song[]> {
   // Wrap each provider search with a timeout
+  const providers = getProviders();
   const promises = providers.map((p) => {
     return Promise.race([
       p.search(query, page),
@@ -70,20 +88,20 @@ export async function searchMusic(query: string, page = 1): Promise<Song[]> {
 
 export async function getPlayUrl(id: string): Promise<string | null> {
   const [source] = id.split(":");
-  const provider = providers.find((p) => p.name === source.toUpperCase());
+  const provider = getProviders().find((p) => p.name === source.toUpperCase());
   if (!provider) return null;
   return provider.getPlayUrl(id);
 }
 
 export async function getLyric(id: string): Promise<string | null> {
   const [source] = id.split(":");
-  const provider = providers.find((p) => p.name === source.toUpperCase());
+  const provider = getProviders().find((p) => p.name === source.toUpperCase());
   if (!provider) return null;
   return provider.getLyric(id);
 }
 
 export async function getHotRecommendation(): Promise<Song | null> {
-  const provider = providers.find((p) => p.name === "NETEASE");
+  const provider = getProviders().find((p) => p.name === "NETEASE");
   if (!provider) return null;
 
   // Cast to any to access getHotSongs since it's not in the generic interface
