@@ -20,6 +20,9 @@ async function call(push: boolean, target: "test" | "prod" = "test") {
     const body: any = { push, target };
     if (date.value.trim()) body.date = date.value.trim();
 
+    // Debug: show what we are sending
+    out.value = `正在发送请求: ${JSON.stringify(body, null, 2)}\n\n等待响应...`;
+
     const res = await fetch("/api/reports/daily/push-all", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -104,13 +107,18 @@ async function chat() {
         <div class="flex flex-wrap items-end gap-4">
           <div class="flex-1 min-w-[200px]">
             <label class="text-xs font-medium text-slate-400 mb-1 block"
-              >日期 (YYYY-MM-DD)</label
+              >日期 (YYYY-MM-DD) <span class="text-emerald-400" v-if="date">当前: {{ date }}</span></label
             >
-            <Input
-              v-model="date"
-              :icon="Calendar"
-              placeholder="留空则为今天"
-            />
+            <!-- 使用原生 input 确保绑定无误 -->
+            <div class="relative">
+              <Calendar class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                v-model="date"
+                type="text"
+                class="flex h-10 w-full rounded-lg border border-white/10 bg-slate-950/50 pl-9 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 transition-all"
+                placeholder="2026-02-09"
+              />
+            </div>
           </div>
           <Button
             variant="primary"

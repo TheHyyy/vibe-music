@@ -193,7 +193,8 @@ export function renderDailyAllText(stats: DailyAllRoomsStats) {
   lines.push(`六人组 Music 日报汇总（${stats.date}）`);
   lines.push("");
   lines.push(
-    `房间数：${stats.totalRooms}｜今日点歌：${stats.totalRequests} 首｜参与：${stats.uniqueUsersByIpHash} 人`,
+    `当日点歌：${stats.totalRequests} 首｜参与：${stats.uniqueUsersByIpHash} 人`,
+    // `房间数：${stats.totalRooms}｜今日点歌：${stats.totalRequests} 首｜参与：${stats.uniqueUsersByIpHash} 人`,
   );
 
   // 不要房间预览

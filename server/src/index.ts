@@ -535,6 +535,7 @@ app.post("/api/reports/daily", async (req, res) => {
 
 app.post("/api/reports/daily/push-all", async (req, res) => {
   try {
+    console.log("[PushAll] Body:", req.body); // Debug log
     const input = z
       .object({
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -542,6 +543,8 @@ app.post("/api/reports/daily/push-all", async (req, res) => {
         target: z.enum(["test", "prod"]).optional(),
       })
       .parse(req.body || {});
+
+    console.log("[PushAll] Parsed Input:", input); // Debug log
 
     const date =
       input.date ||

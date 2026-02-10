@@ -22,8 +22,15 @@ function stableSongKey(song: { title: string; artist: string }) {
   return `${song.title} - ${song.artist}`.trim();
 }
 
-export async function readRoomEventsJsonl(date: string): Promise<SongRequestedEvent[]> {
-  const filePath = path.resolve(process.cwd(), "data", "room-events", `${date}.jsonl`);
+export async function readRoomEventsJsonl(
+  date: string,
+): Promise<SongRequestedEvent[]> {
+  const filePath = path.resolve(
+    process.cwd(),
+    "data",
+    "room-events",
+    `${date}.jsonl`,
+  );
   try {
     const content = await fs.readFile(filePath, "utf8");
     const lines = content.split("\n").filter(Boolean);
@@ -55,7 +62,10 @@ export function calcDailyRoomStats(input: {
   const events = input.events.filter((e) => e.roomId === input.roomId);
 
   const uniqueIpHash = new Set<string>();
-  const songCount = new Map<string, { title: string; artist: string; count: number }>();
+  const songCount = new Map<
+    string,
+    { title: string; artist: string; count: number }
+  >();
   const artistCount = new Map<string, { artist: string; count: number }>();
 
   for (const e of events) {
@@ -102,14 +112,16 @@ export function renderDailyText(stats: DailyRoomStats) {
   lines.push(`Echo Music 房间日报（${stats.date}）`);
   lines.push(`房间：${stats.roomId}`);
   lines.push("");
-  lines.push(`今日点歌：${stats.totalRequests} 首`);
+  lines.push(`当日点歌：${stats.totalRequests} 首`);
   lines.push(`参与用户（按 IPHash 去重）：${stats.uniqueUsersByIpHash} 人`);
 
   if (stats.topSongs.length) {
     lines.push("");
     lines.push("Top 歌曲：");
     stats.topSongs.forEach((s, idx) => {
-      lines.push(`${idx + 1}. ${s.title}${s.artist ? ` - ${s.artist}` : ""}（${s.count}）`);
+      lines.push(
+        `${idx + 1}. ${s.title}${s.artist ? ` - ${s.artist}` : ""}（${s.count}）`,
+      );
     });
   }
 

@@ -1,115 +1,28 @@
+import { aiChatOnce } from "./aiRaw.js";
+
 export type AiDailyAnalysisInput = {
   date: string;
   roomId: string;
   rawTextReport: string;
 };
 
-type OpenAiCompatibleChatCompletionResponse = {
-  choices?: Array<{ message?: { role?: string; content?: string } }>;
-  error?: { message?: string };
-};
-
-function envNumber(name: string, fallback: number) {
-  const raw = (process.env[name] || "").trim();
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function withTimeout<T>(p: Promise<T>, ms: number) {
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort(), ms);
-  return {
-    promise: (async () => {
-      try {
-        // @ts-expect-error - passthrough signal
-        return await p(ac.signal);
-      } finally {
-        clearTimeout(t);
-      }
-    })(),
-    signal: ac.signal,
-  };
-}
-
 function buildPrompt(input: AiDailyAnalysisInput) {
   return [
-    "你是一个懂音乐也懂朋友局的人情味日报编辑。",
-    "请根据下面的【可追溯原始日报】生成一段更有温度的总结，并保留关键榜单信息。",
+    "你是一个懂音乐也懂朋友局的 AI 音乐评论员。",
+    "请根据下面的【日报数据】写一段有趣的点评和分析，作为日报的“AI 辣评”附在最后。",
     "要求：",
-    "- 用中文，语气轻松友好，不要过度夸张",
-    "- 给出 3~6 条要点（bullet）",
-    "- 给出一句收尾（邀请大家明天继续点歌）",
-    "- 不要编造原始日报里没有的数据",
-    "- 输出纯文本即可",
+    "- 不需要重复罗列所有数据（因为原始数据会显示在你上面），而是侧重于“分析”和“点评”。",
+    "- 重点分析今天的听歌氛围（是伤感、怀旧还是嗨歌？）、活跃用户（谁是麦霸？）、大家的口味倾向等。",
+    "- 语气轻松幽默，可以适当调侃（但要友善），像朋友聊天一样。",
+    "- 篇幅控制在 150 字以内，言简意赅。",
+    "- 输出纯文本即可，不要使用 Markdown 标题。",
     "",
     `日期：${input.date}`,
     `房间：${input.roomId}`,
     "",
-    "【可追溯原始日报】",
+    "【日报数据】",
     input.rawTextReport,
   ].join("\n");
-}
-
-async function callOpenAiCompatible(input: AiDailyAnalysisInput) {
-  const baseUrl = (process.env.AI_BASE_URL || "").trim().replace(/\/+$/, "");
-  const model = (process.env.AI_MODEL || "").trim();
-  const apiKey = (process.env.AI_API_KEY || "").trim();
-
-  if (!baseUrl) throw new Error("Missing env: AI_BASE_URL");
-  if (!model) throw new Error("Missing env: AI_MODEL");
-  if (!apiKey) throw new Error("Missing env: AI_API_KEY");
-
-  const modelLower = model.toLowerCase();
-  const isAzureOpenAi = modelLower.startsWith("azure_openai/");
-  const effectiveModel = isAzureOpenAi ? model.split("/")[1] || model : model;
-
-  const omitTemperature = effectiveModel.toLowerCase().includes("gpt-5");
-  const temperature = envNumber("AI_TEMPERATURE", 1);
-  const maxTokens = envNumber("AI_MAX_TOKENS", 1200);
-
-  const prompt = buildPrompt(input);
-
-  const url = `${baseUrl}/chat/completions`;
-  const timeoutMs = envNumber("AI_TIMEOUT_MS", 15000);
-
-  const { promise, signal } = withTimeout(
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    ((s: AbortSignal) =>
-      fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          "api-key": apiKey,
-          ...(isAzureOpenAi ? { "X-Model-Provider-Id": "azure_openai" } : {}),
-        },
-        body: JSON.stringify({
-          model: effectiveModel,
-          ...(omitTemperature ? {} : { temperature }),
-          max_tokens: maxTokens,
-          mify_extra: { reasoning_content_enabled: false },
-          messages: [
-            { role: "system", content: "你是一个严谨但有温度的日报编辑。" },
-            { role: "user", content: prompt },
-          ],
-        }),
-        signal: s,
-      })) as any,
-    timeoutMs,
-  );
-
-  const res = await promise;
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`AI request failed: ${res.status} ${body}`);
-  }
-
-  const data = (await res.json().catch(() => null)) as OpenAiCompatibleChatCompletionResponse | null;
-  if (!data) throw new Error("AI response parse failed");
-  if (data.error?.message) throw new Error(`AI error: ${data.error.message}`);
-
-  const content = data.choices?.[0]?.message?.content;
-  return String(content || "").trim();
 }
 
 export async function analyzeDailyReportWithAi(input: AiDailyAnalysisInput) {
@@ -123,15 +36,26 @@ export async function analyzeDailyReportWithAi(input: AiDailyAnalysisInput) {
 
   try {
     if (provider === "openai_compatible") {
-      const text = await callOpenAiCompatible(input);
-      return text ? `【AI】\n${text}` : input.rawTextReport;
+      const prompt = buildPrompt(input);
+      const text = await aiChatOnce({
+        message: prompt,
+        reasoningContentEnabled: false,
+        debug: {
+          timeoutMs: 60000, // 60s timeout
+          maxTokens: 1200,
+        },
+      });
+      // Append AI commentary to the raw report
+      return text
+        ? `${input.rawTextReport}\n\n----------------\n【总结】\n${text}`
+        : input.rawTextReport;
     }
 
     // Unknown provider: safe fallback
     return input.rawTextReport;
   } catch (e) {
     console.error("[AI] analyze failed", e);
-    // Never block pushing; degrade gracefully
-    return input.rawTextReport;
+    // For debugging: append the error to the report so we can see it in the UI
+    return `${input.rawTextReport}\n\n----------------\n【AI 分析失败】\n${(e as Error).message}`;
   }
 }
