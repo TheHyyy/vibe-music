@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import HomePage from '@/pages/HomePage.vue'
 import RoomPage from '@/components/room/RoomPage.vue'
+import AdminPage from '@/pages/AdminPage.vue'
 
 // 定义路由配置
 const routes: RouteRecordRaw[] = [
@@ -13,6 +14,11 @@ const routes: RouteRecordRaw[] = [
     path: '/rooms/:roomId',
     name: 'room',
     component: RoomPage,
+  },
+  {
+    path: '/admin',
+    name: 'admin',
+    component: AdminPage,
   },
   {
     path: '/:pathMatch(.*)*',

@@ -49,9 +49,10 @@ function maskIp(ip: string) {
 }
 
 function pickDisplayName(e: SongRequestedEvent) {
-  const name = String(e.user?.username || "").trim() || "匿名";
+  const name = String(e.user?.username || "").trim();
+  if (name) return name;
   const ipMasked = maskIp(String(e.user?.ip || ""));
-  return `${name}（${ipMasked}）`;
+  return `匿名（${ipMasked}）`;
 }
 
 function stableSongKey(song: { title: string; artist: string }) {
@@ -79,7 +80,6 @@ export function calcDailyAllRoomsStats(input: {
     )
     .sort((a, b) => b.totalRequests - a.totalRequests);
 
-  const uniqueUsers = new Set<string>();
   const userAgg = new Map<
     UserKey,
     {
@@ -97,10 +97,24 @@ export function calcDailyAllRoomsStats(input: {
   >();
   const artistCount = new Map<string, { artist: string; count: number }>();
 
+  // Track unique users with better granularity (Name + IP)
+  const uniqueUserKeys = new Set<string>();
+
   for (const e of input.events) {
     if (e.type !== "song.requested") continue;
+
     const ipHash = String(e.user?.ipHash || "");
-    if (ipHash) uniqueUsers.add(ipHash);
+    const username = String(e.user?.username || "").trim();
+
+    // Merge by username if available (User request: "名字相同的就合并")
+    let userKey = username;
+
+    if (!userKey) {
+      // If no username, fallback to userId or ipHash to distinguish anonymous users
+      userKey = e.user?.userId || ipHash;
+    }
+
+    if (userKey) uniqueUserKeys.add(userKey);
 
     const title = String(e.song?.title || "").trim();
     const artist = String(e.song?.artist || "").trim();
@@ -117,8 +131,8 @@ export function calcDailyAllRoomsStats(input: {
     }
 
     // per user
-    if (ipHash) {
-      const prev = userAgg.get(ipHash);
+    if (userKey) {
+      const prev = userAgg.get(userKey);
       const displayName = prev?.displayName || pickDisplayName(e);
       const agg = prev || {
         ipHash,
@@ -133,7 +147,7 @@ export function calcDailyAllRoomsStats(input: {
         agg.artistCount.set(artist, (agg.artistCount.get(artist) || 0) + 1);
       agg.songCount.set(sk, (agg.songCount.get(sk) || 0) + 1);
 
-      userAgg.set(ipHash, agg);
+      userAgg.set(userKey, agg);
     }
   }
 
@@ -166,7 +180,7 @@ export function calcDailyAllRoomsStats(input: {
     date: input.date,
     totalRooms: roomIds.length,
     totalRequests: input.events.length,
-    uniqueUsersByIpHash: uniqueUsers.size,
+    uniqueUsersByIpHash: uniqueUserKeys.size, // Use the new count
     rooms,
     perUser,
     topSongs,
@@ -182,19 +196,20 @@ export function renderDailyAllText(stats: DailyAllRoomsStats) {
     `房间数：${stats.totalRooms}｜今日点歌：${stats.totalRequests} 首｜参与：${stats.uniqueUsersByIpHash} 人`,
   );
 
-  if (stats.rooms.length) {
-    lines.push("");
-    lines.push("房间概览：");
-    stats.rooms.forEach((r, idx) => {
-      lines.push(
-        `${idx + 1}. ${r.roomId}：${r.totalRequests} 首（${r.uniqueUsersByIpHash} 人）`,
-      );
-    });
-  }
+  // 不要房间预览
+  // if (stats.rooms.length) {
+  //   lines.push("");
+  //   lines.push("房间概览：");
+  //   stats.rooms.forEach((r, idx) => {
+  //     lines.push(
+  //       `${idx + 1}. ${r.roomId}：${r.totalRequests} 首（${r.uniqueUsersByIpHash} 人）`,
+  //     );
+  //   });
+  // }
 
   if (stats.perUser.length) {
     lines.push("");
-    lines.push("今日最活跃点歌榜：");
+    lines.push("最活跃点歌榜：");
     stats.perUser.slice(0, 10).forEach((u, idx) => {
       const fav = u.favoriteArtist ? `｜最爱：${u.favoriteArtist}` : "";
       lines.push(`${idx + 1}. ${u.displayName}：${u.requests} 首${fav}`);

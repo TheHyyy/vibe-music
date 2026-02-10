@@ -539,6 +539,7 @@ app.post("/api/reports/daily/push-all", async (req, res) => {
       .object({
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         push: z.boolean().optional(),
+        target: z.enum(["test", "prod"]).optional(),
       })
       .parse(req.body || {});
 
@@ -563,8 +564,14 @@ app.post("/api/reports/daily/push-all", async (req, res) => {
     });
 
     if (input.push !== false) {
-      const webhookUrl = (process.env.FEISHU_WEBHOOK_URL || "").trim();
-      if (!webhookUrl) throw new Error("Missing env: FEISHU_WEBHOOK_URL");
+      let webhookUrl = "";
+      if (input.target === "prod") {
+        webhookUrl = (process.env.FEISHU_WEBHOOK_URL_PROD || "").trim();
+        if (!webhookUrl) throw new Error("Missing env: FEISHU_WEBHOOK_URL_PROD");
+      } else {
+        webhookUrl = (process.env.FEISHU_WEBHOOK_URL || "").trim();
+        if (!webhookUrl) throw new Error("Missing env: FEISHU_WEBHOOK_URL");
+      }
       await sendFeishuWebhookText({ webhookUrl, text: aiText });
     }
 

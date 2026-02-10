@@ -24,18 +24,25 @@ function stableSongKey(song: { title: string; artist: string }) {
 
 export async function readRoomEventsJsonl(date: string): Promise<SongRequestedEvent[]> {
   const filePath = path.resolve(process.cwd(), "data", "room-events", `${date}.jsonl`);
-  const content = await fs.readFile(filePath, "utf8");
-  const lines = content.split("\n").filter(Boolean);
-  const events: SongRequestedEvent[] = [];
-  for (const line of lines) {
-    try {
-      const obj = JSON.parse(line);
-      if (obj && obj.type === "song.requested") events.push(obj);
-    } catch {
-      // ignore broken line
+  try {
+    const content = await fs.readFile(filePath, "utf8");
+    const lines = content.split("\n").filter(Boolean);
+    const events: SongRequestedEvent[] = [];
+    for (const line of lines) {
+      try {
+        const obj = JSON.parse(line);
+        if (obj && obj.type === "song.requested") events.push(obj);
+      } catch {
+        // ignore broken line
+      }
     }
+    return events;
+  } catch (e) {
+    if ((e as any).code === "ENOENT") {
+      return [];
+    }
+    throw e;
   }
-  return events;
 }
 
 export function calcDailyRoomStats(input: {

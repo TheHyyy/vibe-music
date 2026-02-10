@@ -28,7 +28,8 @@ export function renderAdminPage() {
           <div class="muted">日期（YYYY-MM-DD，可空=今天）</div>
           <input id="date" placeholder="2026-02-06" />
         </label>
-        <button id="btnPush">推送今日汇总日报</button>
+        <button id="btnPush">推送测试群</button>
+        <button id="btnPushProd" style="background:#059669;">推送正式群</button>
         <button class="secondary" id="btnPreview">仅预览（不推送）</button>
       </div>
       <p class="muted">推送会调用：POST /api/reports/daily/push-all</p>
@@ -69,10 +70,10 @@ export function renderAdminPage() {
   const thinkingEnabled = document.getElementById('thinkingEnabled');
   const useStream = document.getElementById('useStream');
 
-  async function call(push) {
+  async function call(push, target = 'test') {
     out.textContent = '请求中...';
     const date = (dateEl.value || '').trim();
-    const body = { push };
+    const body = { push, target };
     if (date) body.date = date;
 
     const res = await fetch('/api/reports/daily/push-all', {
@@ -127,7 +128,8 @@ export function renderAdminPage() {
     chatOut.textContent = json.data.text || '(empty)';
   }
 
-  document.getElementById('btnPush').addEventListener('click', () => call(true));
+  document.getElementById('btnPush').addEventListener('click', () => call(true, 'test'));
+  document.getElementById('btnPushProd').addEventListener('click', () => call(true, 'prod'));
   document.getElementById('btnPreview').addEventListener('click', () => call(false));
   document.getElementById('btnChat').addEventListener('click', () => chat());
   chatInput.addEventListener('keydown', (e) => {
