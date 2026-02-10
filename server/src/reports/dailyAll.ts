@@ -227,13 +227,13 @@ export function renderDailyAllText(stats: DailyAllRoomsStats) {
     });
   }
 
-  if (stats.topArtists.length) {
-    lines.push("");
-    lines.push("全局 Top 歌手：");
-    stats.topArtists.forEach((a, idx) => {
-      lines.push(`${idx + 1}. ${a.artist}（${a.count}）`);
-    });
-  }
+  // if (stats.topArtists.length) {
+  //   lines.push("");
+  //   lines.push("全局 Top 歌手：");
+  //   stats.topArtists.forEach((a, idx) => {
+  //     lines.push(`${idx + 1}. ${a.artist}（${a.count}）`);
+  //   });
+  // }
 
   // Keep room-level raw report at bottom for traceability (shortened)
   // 注释掉简报部分
