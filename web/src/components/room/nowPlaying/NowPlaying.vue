@@ -41,6 +41,8 @@ const prevVolume = ref(1);
 const isEnding = ref(false);
 const retryCount = ref(0);
 const autoplayFailed = ref(false);
+// Prevent double-skip bug: throttle onEnded to once every 5 seconds
+const lastEndedTime = ref(0);
 
 // Ensure we only report "ended" once per nowPlaying item.
 const endedReportedForItemId = ref<string | null>(null);
@@ -243,6 +245,10 @@ function scrollToCurrentLine() {
 }
 
 async function onEnded() {
+  // Simple throttle to prevent double-skip bug
+  if (Date.now() - lastEndedTime.value < 5000) return;
+  lastEndedTime.value = Date.now();
+
   const itemId = nowPlaying.value?.id;
   if (!roomId.value || !itemId) return;
 
