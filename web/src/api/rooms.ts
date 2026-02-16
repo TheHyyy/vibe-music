@@ -1,0 +1,156 @@
+import { http } from "@/api/http";
+import type {
+  ApiResult,
+  QueueItem,
+  RoomStatePayload,
+  RoomSettings,
+  Song,
+  RoomListItem,
+} from "@/types/api";
+
+export async function getRoomList(): Promise<ApiResult<RoomListItem[]>> {
+  const res = await http.get<ApiResult<RoomListItem[]>>("/api/rooms");
+  return res.data;
+}
+
+export async function createRoom(input: {
+  name: string;
+  displayName: string;
+  password?: string;
+  settings?: Partial<RoomSettings>;
+}): Promise<
+  ApiResult<{ roomId: string; token: string; state: RoomStatePayload }>
+> {
+  const res = await http.post<
+    ApiResult<{ roomId: string; token: string; state: RoomStatePayload }>
+  >("/api/rooms", input);
+  return res.data;
+}
+
+export async function joinRoom(input: {
+  code: string;
+  displayName: string;
+}): Promise<
+  ApiResult<{ roomId: string; token: string; state: RoomStatePayload }>
+> {
+  const res = await http.post<
+    ApiResult<{ roomId: string; token: string; state: RoomStatePayload }>
+  >("/api/rooms/join", input);
+  return res.data;
+}
+
+export async function joinRoomById(
+  roomId: string,
+  input: {
+    displayName: string;
+    password?: string;
+    inviteToken?: string;
+  },
+): Promise<
+  ApiResult<{ roomId: string; token: string; state: RoomStatePayload }>
+> {
+  const res = await http.post<
+    ApiResult<{ roomId: string; token: string; state: RoomStatePayload }>
+  >(`/api/rooms/${roomId}/join`, input);
+  return res.data;
+}
+
+export async function getPublicRoomInfo(
+  roomId: string,
+): Promise<
+  ApiResult<{
+    name: string;
+    code: string;
+    hostName?: string;
+    hasPassword: boolean;
+  }>
+> {
+  const res = await http.get<
+    ApiResult<{
+      name: string;
+      code: string;
+      hostName?: string;
+      hasPassword: boolean;
+    }>
+  >(`/api/rooms/${roomId}/public`);
+  return res.data;
+}
+
+export async function getRoomState(
+  roomId: string,
+): Promise<ApiResult<RoomStatePayload>> {
+  const res = await http.get<ApiResult<RoomStatePayload>>(
+    `/api/rooms/${roomId}/state`,
+  );
+  return res.data;
+}
+
+export async function requestSong(
+  roomId: string,
+  input: { song: Song },
+): Promise<ApiResult<QueueItem>> {
+  const res = await http.post<ApiResult<QueueItem>>(
+    `/api/rooms/${roomId}/queue`,
+    input,
+  );
+  return res.data;
+}
+
+// Alias for compatibility
+export const addQueueItem = requestSong;
+
+export async function vote(
+  roomId: string,
+  itemId: string,
+  input: { type: "UP" | "DOWN" | "SKIP" },
+): Promise<ApiResult<{ itemId: string; voteScore: number }>> {
+  const res = await http.post<ApiResult<{ itemId: string; voteScore: number }>>(
+    `/api/rooms/${roomId}/queue/${itemId}/votes`,
+    input,
+  );
+  return res.data;
+}
+
+export async function adminNext(
+  roomId: string,
+  currentSongId?: string,
+): Promise<ApiResult<{ nowPlaying?: QueueItem }>> {
+  const res = await http.post<ApiResult<{ nowPlaying?: QueueItem }>>(
+    `/api/rooms/${roomId}/admin/next`,
+    { currentSongId },
+  );
+  return res.data;
+}
+
+export async function reportEnded(
+  roomId: string,
+  songId: string,
+): Promise<ApiResult<{ nowPlaying?: QueueItem }>> {
+  const res = await http.post<ApiResult<{ nowPlaying?: QueueItem }>>(
+    `/api/rooms/${roomId}/ended`,
+    { songId },
+  );
+  return res.data;
+}
+
+export async function adminKick(
+  roomId: string,
+  userId: string,
+): Promise<ApiResult<{ ok: true }>> {
+  const res = await http.post<ApiResult<{ ok: true }>>(
+    `/api/rooms/${roomId}/admin/kick`,
+    { userId },
+  );
+  return res.data;
+}
+
+export async function updateSettings(
+  roomId: string,
+  input: Partial<RoomSettings>,
+): Promise<ApiResult<RoomSettings>> {
+  const res = await http.patch<ApiResult<RoomSettings>>(
+    `/api/rooms/${roomId}/settings`,
+    input,
+  );
+  return res.data;
+}

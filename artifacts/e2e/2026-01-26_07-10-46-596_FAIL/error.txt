@@ -1,0 +1,4 @@
+Error: Failed to parse room code from "#GNKZ_J"
+    at getRoomCode (file:///Users/houyu/Desktop/my_project/echo-music/server/e2e/lan.e2e.mjs:300:19)
+    at async main (file:///Users/houyu/Desktop/my_project/echo-music/server/e2e/lan.e2e.mjs:530:22)
+    at async file:///Users/houyu/Desktop/my_project/echo-music/server/e2e/lan.e2e.mjs:691:1

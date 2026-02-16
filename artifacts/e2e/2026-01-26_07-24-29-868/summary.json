@@ -1,0 +1,22 @@
+{
+  "baseUrl": "http://localhost:5174",
+  "roomCode": "RCOSBE",
+  "nowPlaying": {
+    "initialHost": "暂无播放",
+    "initialGuest": "暂无播放",
+    "first": "想你就写信 (Live)",
+    "second": "Always Online",
+    "afterHost": "Always Online",
+    "afterGuest": "Always Online"
+  },
+  "audio": {
+    "host": {
+      "pausedBeforeHost": false,
+      "pausedAfterHost": true
+    },
+    "guest": {
+      "pausedBeforeGuest": false,
+      "pausedAfterGuest": true
+    }
+  }
+}
