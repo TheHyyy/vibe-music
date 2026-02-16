@@ -1,0 +1,34 @@
+# Dependencies
+**/node_modules
+
+# Build outputs
+**/dist
+server/client_dist
+
+# Dev files
+**/.vscode
+**/.idea
+*.log
+*.tsbuildinfo
+
+# Git
+.git
+.gitignore
+
+# Environment files (will be configured in Matrix)
+**/.env
+**/.env.*
+!.env.example
+
+# Test files
+**/test
+**/e2e
+**/*.test.ts
+**/*.spec.ts
+
+# Misc
+.DS_Store
+*.md
+.trae
+artifacts
+temp_skill_creation
