@@ -9,27 +9,18 @@ WORKDIR /app
 # 安装 pnpm
 RUN npm install -g pnpm
 
-# 复制 package 文件
-COPY web/package.json web/pnpm-lock.yaml ./web/
-COPY server/package.json server/pnpm-lock.yaml ./server/
-
-# 安装依赖
-WORKDIR /app/web
-RUN pnpm install --frozen-lockfile
-
-WORKDIR /app/server
-RUN pnpm install --frozen-lockfile
-
-# 复制源代码
+# 复制所有源代码
 COPY web/ ./web/
 COPY server/ ./server/
 
-# 构建前端 (输出到 server/client_dist)
+# 安装前端依赖并构建
 WORKDIR /app/web
+RUN pnpm install --frozen-lockfile
 RUN pnpm run build
 
-# 构建后端
+# 安装后端依赖并构建
 WORKDIR /app/server
+RUN pnpm install --frozen-lockfile
 RUN pnpm run build
 
 # ==================== 运行阶段 ====================
