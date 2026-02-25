@@ -50,10 +50,7 @@ COPY --from=builder /app/server/dist ./dist
 # 复制前端构建产物到 client_dist
 COPY --from=builder /app/server/client_dist ./client_dist
 
-# 复制环境变量文件
-COPY server/.env ./.env
-
-# 环境变量
+# 环境变量 (通过 docker run -e 传入)
 ENV NODE_ENV=production
 
 # 暴露端口
