@@ -31,17 +31,19 @@ WORKDIR /app
 # 安装 pnpm
 RUN npm install -g pnpm
 
-# 复制后端 package 和构建产物
-COPY server/package.json server/pnpm-lock.yaml ./
+# 复制后端 package 和 lockfile
+COPY --from=builder /app/server/package.json /app/server/package.json
+COPY --from=builder /app/server/pnpm-lock.yaml /app/server/pnpm-lock.yaml
+
+# 安装生产依赖
+WORKDIR /app/server
 RUN pnpm install --prod
 
-# 复制后端构建产物
+# 复制构建产物
 COPY --from=builder /app/server/dist ./dist
-
-# 复制前端构建产物到 client_dist
 COPY --from=builder /app/server/client_dist ./client_dist
 
-# 皴露端口
+# 暴露端口
 EXPOSE 3001
 
 # 启动命令
