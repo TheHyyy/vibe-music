@@ -15,12 +15,12 @@ COPY server/ ./server/
 
 # 安装前端依赖并构建
 WORKDIR /app/web
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 RUN pnpm run build
 
 # 安装后端依赖并构建
 WORKDIR /app/server
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 RUN pnpm run build
 
 # ==================== 运行阶段 ====================
@@ -33,7 +33,7 @@ RUN npm install -g pnpm
 
 # 复制后端 package 和构建产物
 COPY server/package.json server/pnpm-lock.yaml ./
-RUN pnpm install --prod --frozen-lockfile
+RUN pnpm install --prod
 
 # 复制后端构建产物
 COPY --from=builder /app/server/dist ./dist
@@ -41,10 +41,7 @@ COPY --from=builder /app/server/dist ./dist
 # 复制前端构建产物到 client_dist
 COPY --from=builder /app/server/client_dist ./client_dist
 
-# 环境变量 (通过 docker run -e 传入)
-ENV NODE_ENV=production
-
-# 暴露端口
+# 皴露端口
 EXPOSE 3001
 
 # 启动命令
