@@ -369,7 +369,7 @@ ZosTByYp4Xwpb1+WAQIDAQAB
                 uid: "1234",
               },
               maxRedirects: 0,
-              validateStatus: (status) => status >= 200 && status < 400,
+              validateStatus: (status: number) => status >= 200 && status < 400,
             },
           );
 
