@@ -41,15 +41,28 @@ export class MusicfreeProvider implements MusicProvider {
       const realId = id.replace("kugou:", "");
       
       // 从缓存中获取歌曲信息
-      const songInfo = songCache.get(realId);
+      let songInfo = songCache.get(realId);
       
+      // 如果缓存没有，尝试通过 ID 重新获取（服务器重启后缓存丢失）
       if (!songInfo) {
-        console.log("[Musicfree] song not in cache, cannot get play URL");
-        return null;
+        console.log(`[Musicfree] song ${realId} not in cache, attempting to refetch...`);
+        
+        // 尝试直接用 ID 获取播放链接
+        // musicfree-api 支持直接用歌曲 ID 获取
+        try {
+          const directMedia = await musicAPI.getMediaSource(this.platform, { id: realId }, 'standard');
+          if (directMedia?.url) {
+            console.log(`[Musicfree] got URL directly by ID`);
+            return directMedia.url;
+          }
+        } catch (e) {
+          console.log(`[Musicfree] direct fetch failed:`, e);
+        }
+        
+        throw new Error("歌曲信息已过期，请重新搜索");
       }
       
       // 优先尝试 MP3 格式（兼容性最好）
-      // standard = 128kbps MP3, high = 320kbps MP3, super = FLAC
       const qualities = ['standard', 'high', 'super'];
       
       for (const quality of qualities) {
@@ -66,15 +79,15 @@ export class MusicfreeProvider implements MusicProvider {
               return url;
             }
             
-            // 非 MP3 格式，记录日志
+            // 非 MP3 格式，也返回（可能兼容性差）
             console.log(`[Musicfree] got ${ext} URL (${quality}), may not work in some browsers`);
+            return url;
           }
         } catch (e: any) {
           console.log(`[Musicfree] quality ${quality} failed:`, e.message);
         }
       }
       
-      // 如果所有音质都失败，抛出错误
       throw new Error("酷狗暂无此歌曲资源，请尝试其他平台");
     } catch (e) {
       console.error("[Musicfree] getPlayUrl error:", e);
@@ -86,16 +99,12 @@ export class MusicfreeProvider implements MusicProvider {
     try {
       const realId = id.replace("kugou:", "");
       
-      // 从缓存中获取歌曲信息
       const songInfo = songCache.get(realId);
-      
       if (!songInfo) {
         return null;
       }
       
-      // 获取歌词
       const lyric = await musicAPI.getLyric(this.platform, songInfo);
-      
       return lyric?.rawLrc || null;
     } catch (e) {
       console.error("[Musicfree] getLyric error:", e);
