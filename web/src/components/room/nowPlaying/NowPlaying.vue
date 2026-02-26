@@ -16,7 +16,7 @@ import { getPlayUrl, getLyric } from "@/api/songs";
 import { useRoomActions, useRoomSelector } from "@/stores/useRoomStore";
 import type { WebSocketClient } from "@/hooks/useWebSocket";
 import { parseLrc, findCurrentLineIndex, type LrcLine } from "@/lib/lrc";
-import { animalAvatarUrl } from "@/lib/utils";
+import { animalAvatarUrl, formatTime } from "@/lib/utils";
 import Button from "@/components/ui/Button.vue";
 import { useFavorites } from "@/composables/useFavorites";
 
@@ -41,8 +41,6 @@ const prevVolume = ref(1);
 const isEnding = ref(false);
 const retryCount = ref(0);
 const autoplayFailed = ref(false);
-// Prevent double-skip bug: throttle onEnded to once every 5 seconds
-const lastEndedTime = ref(0);
 
 // Ensure we only report "ended" once per nowPlaying item.
 const endedReportedForItemId = ref<string | null>(null);
@@ -67,13 +65,6 @@ const canAdmin = computed(
 const nextLoadingKey = computed(() => `admin:next:${roomId.value || ""}`);
 const nextLoading = computed(() => !!actionLoading.value[nextLoadingKey.value]);
 const voteSkipLoading = ref(false);
-
-// Format seconds to MM:SS
-function formatTime(seconds: number) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
 
 async function loadAndPlay() {
   if (!nowPlaying.value) {
@@ -245,30 +236,36 @@ function scrollToCurrentLine() {
 }
 
 async function onEnded() {
-  // Simple throttle to prevent double-skip bug
-  if (Date.now() - lastEndedTime.value < 5000) return;
-  lastEndedTime.value = Date.now();
+  // Guard: if already ending, skip
+  if (isEnding.value) return;
 
   const itemId = nowPlaying.value?.id;
   if (!roomId.value || !itemId) return;
 
-  // Guard against duplicate ended events / duplicate listeners.
+  // Guard against duplicate ended events for the same song
   if (endedReportedForItemId.value === itemId) return;
-  endedReportedForItemId.value = itemId;
 
-  if (isEnding.value) return;
+  // Set all protection flags BEFORE async operation
   isEnding.value = true;
+  endedReportedForItemId.value = itemId;
   isPlaying.value = false;
 
   // Auto next for everyone (server validates)
   try {
-    await reportEnded(roomId.value, itemId);
+    const response = await reportEnded(roomId.value, itemId);
+
+    // Check if server actually processed the skip (not a duplicate)
+    // Server returns { skipped: false, reason: "Already skipped" } if already processed
+    if (response.ok && (response.data as any)?.skipped === false) {
+      console.log("[onEnded] Server indicated already skipped, ignoring");
+    }
   } catch (e) {
     console.error("Auto-next failed:", e);
-    // allow retry if request failed
+    // Only reset on error to allow retry
     endedReportedForItemId.value = null;
     isEnding.value = false;
   }
+  // Note: isEnding will be reset by the watch when nowPlaying changes
 }
 
 function onAudioError(e: Event) {

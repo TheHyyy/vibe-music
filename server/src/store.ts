@@ -245,15 +245,12 @@ export function applyVote(
   if (!rec) throw new Error("房间不存在");
   const voteKey = `${roomId}:${itemId}:${userId}`;
   const prev = rec.votes.get(voteKey);
-  if (prev === type)
-    return {
-      score: currentVoteScore(rec, itemId),
-      skipCount: currentSkipCount(rec, itemId),
-    };
+  if (prev === type) return getVoteStats(rec, itemId);
+
   rec.votes.set(voteKey, type);
 
-  const score = currentVoteScore(rec, itemId);
-  const skipCount = currentSkipCount(rec, itemId);
+  // Use optimized single-pass calculation
+  const { score, skipCount } = getVoteStats(rec, itemId);
 
   // Update queue
   rec.queue = sortQueue(
@@ -276,8 +273,9 @@ export function applyVote(
 
 export function currentVoteScore(rec: RoomRecord, itemId: string) {
   let score = 0;
+  const prefix = `:${itemId}:`;
   for (const [key, v] of rec.votes.entries()) {
-    if (!key.includes(`:${itemId}:`)) continue;
+    if (!key.includes(prefix)) continue;
     if (v === "UP") score += 1;
     if (v === "DOWN") score -= 1;
   }
@@ -286,11 +284,32 @@ export function currentVoteScore(rec: RoomRecord, itemId: string) {
 
 export function currentSkipCount(rec: RoomRecord, itemId: string) {
   let count = 0;
+  const prefix = `:${itemId}:`;
   for (const [key, v] of rec.votes.entries()) {
-    if (!key.includes(`:${itemId}:`)) continue;
+    if (!key.includes(prefix)) continue;
     if (v === "SKIP") count += 1;
   }
   return count;
+}
+
+/**
+ * Calculate both vote score and skip count in a single pass.
+ * More efficient than calling currentVoteScore and currentSkipCount separately.
+ */
+export function getVoteStats(
+  rec: RoomRecord,
+  itemId: string,
+): { score: number; skipCount: number } {
+  let score = 0;
+  let skipCount = 0;
+  const prefix = `:${itemId}:`;
+  for (const [key, v] of rec.votes.entries()) {
+    if (!key.includes(prefix)) continue;
+    if (v === "UP") score += 1;
+    else if (v === "DOWN") score -= 1;
+    else if (v === "SKIP") skipCount += 1;
+  }
+  return { score, skipCount };
 }
 
 export function nextSong(roomId: string) {

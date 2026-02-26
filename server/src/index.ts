@@ -447,12 +447,23 @@ app.post("/api/rooms/:roomId/ended", async (req, res) => {
 
     const input = z.object({ songId: z.string() }).parse(req.body);
 
+    console.log(
+      `[Ended] Request from user ${userId} for song ${input.songId}, current nowPlaying: ${rec.nowPlaying?.id}`,
+    );
+
     // Idempotency: only advance if the ended song is still the one playing.
     // A duplicate ended request arriving after we already advanced must be a no-op.
     if (!rec.nowPlaying || rec.nowPlaying.id !== input.songId) {
+      console.log(
+        `[Ended] Skipping duplicate/invalid request. Expected: ${rec.nowPlaying?.id}, Got: ${input.songId}`,
+      );
       res.json(ok({ skipped: false, reason: "Already skipped" }));
       return;
     }
+
+    console.log(
+      `[Ended] Processing skip for room ${roomId}, song: ${rec.nowPlaying.song.title}`,
+    );
 
     // Perform next song logic (with auto-play fallback)
     let nowPlaying = nextSong(roomId);
@@ -638,7 +649,6 @@ app.get("/api/config", (req, res) => {
   res.json(
     ok({
       enableQQ: process.env.ENABLE_QQ_MUSIC === "true",
-      enableMigu: process.env.ENABLE_MIGU_MUSIC !== "false",
     }),
   );
 });
