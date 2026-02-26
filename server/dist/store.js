@@ -173,13 +173,10 @@ export function applyVote(roomId, userId, itemId, type) {
     const voteKey = `${roomId}:${itemId}:${userId}`;
     const prev = rec.votes.get(voteKey);
     if (prev === type)
-        return {
-            score: currentVoteScore(rec, itemId),
-            skipCount: currentSkipCount(rec, itemId),
-        };
+        return getVoteStats(rec, itemId);
     rec.votes.set(voteKey, type);
-    const score = currentVoteScore(rec, itemId);
-    const skipCount = currentSkipCount(rec, itemId);
+    // Use optimized single-pass calculation
+    const { score, skipCount } = getVoteStats(rec, itemId);
     // Update queue
     rec.queue = sortQueue(rec.queue.map((it) => it.id === itemId ? { ...it, voteScore: score, skipVotes: skipCount } : it));
     // Update nowPlaying if matches
@@ -194,8 +191,9 @@ export function applyVote(roomId, userId, itemId, type) {
 }
 export function currentVoteScore(rec, itemId) {
     let score = 0;
+    const prefix = `:${itemId}:`;
     for (const [key, v] of rec.votes.entries()) {
-        if (!key.includes(`:${itemId}:`))
+        if (!key.includes(prefix))
             continue;
         if (v === "UP")
             score += 1;
@@ -206,13 +204,34 @@ export function currentVoteScore(rec, itemId) {
 }
 export function currentSkipCount(rec, itemId) {
     let count = 0;
+    const prefix = `:${itemId}:`;
     for (const [key, v] of rec.votes.entries()) {
-        if (!key.includes(`:${itemId}:`))
+        if (!key.includes(prefix))
             continue;
         if (v === "SKIP")
             count += 1;
     }
     return count;
+}
+/**
+ * Calculate both vote score and skip count in a single pass.
+ * More efficient than calling currentVoteScore and currentSkipCount separately.
+ */
+export function getVoteStats(rec, itemId) {
+    let score = 0;
+    let skipCount = 0;
+    const prefix = `:${itemId}:`;
+    for (const [key, v] of rec.votes.entries()) {
+        if (!key.includes(prefix))
+            continue;
+        if (v === "UP")
+            score += 1;
+        else if (v === "DOWN")
+            score -= 1;
+        else if (v === "SKIP")
+            skipCount += 1;
+    }
+    return { score, skipCount };
 }
 export function nextSong(roomId) {
     const rec = rooms.get(roomId);

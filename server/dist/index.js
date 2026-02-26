@@ -385,12 +385,15 @@ app.post("/api/rooms/:roomId/ended", async (req, res) => {
         if (!rec)
             throw new Error("房间不存在");
         const input = z.object({ songId: z.string() }).parse(req.body);
+        console.log(`[Ended] Request from user ${userId} for song ${input.songId}, current nowPlaying: ${rec.nowPlaying?.id}`);
         // Idempotency: only advance if the ended song is still the one playing.
         // A duplicate ended request arriving after we already advanced must be a no-op.
         if (!rec.nowPlaying || rec.nowPlaying.id !== input.songId) {
+            console.log(`[Ended] Skipping duplicate/invalid request. Expected: ${rec.nowPlaying?.id}, Got: ${input.songId}`);
             res.json(ok({ skipped: false, reason: "Already skipped" }));
             return;
         }
+        console.log(`[Ended] Processing skip for room ${roomId}, song: ${rec.nowPlaying.song.title}`);
         // Perform next song logic (with auto-play fallback)
         let nowPlaying = nextSong(roomId);
         if (!nowPlaying) {
@@ -469,12 +472,15 @@ app.post("/api/reports/daily", async (req, res) => {
 });
 app.post("/api/reports/daily/push-all", async (req, res) => {
     try {
+        console.log("[PushAll] Body:", req.body); // Debug log
         const input = z
             .object({
             date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
             push: z.boolean().optional(),
+            target: z.enum(["test", "prod"]).optional(),
         })
             .parse(req.body || {});
+        console.log("[PushAll] Parsed Input:", input); // Debug log
         const date = input.date ||
             (() => {
                 const d = new Date();
@@ -492,9 +498,17 @@ app.post("/api/reports/daily/push-all", async (req, res) => {
             rawTextReport: rawText,
         });
         if (input.push !== false) {
-            const webhookUrl = (process.env.FEISHU_WEBHOOK_URL || "").trim();
-            if (!webhookUrl)
-                throw new Error("Missing env: FEISHU_WEBHOOK_URL");
+            let webhookUrl = "";
+            if (input.target === "prod") {
+                webhookUrl = (process.env.FEISHU_WEBHOOK_URL_PROD || "").trim();
+                if (!webhookUrl)
+                    throw new Error("Missing env: FEISHU_WEBHOOK_URL_PROD");
+            }
+            else {
+                webhookUrl = (process.env.FEISHU_WEBHOOK_URL || "").trim();
+                if (!webhookUrl)
+                    throw new Error("Missing env: FEISHU_WEBHOOK_URL");
+            }
             await sendFeishuWebhookText({ webhookUrl, text: aiText });
         }
         res.json(ok({ stats, text: aiText }));
@@ -553,7 +567,6 @@ app.get("/api/songs/lyric", async (req, res) => {
 app.get("/api/config", (req, res) => {
     res.json(ok({
         enableQQ: process.env.ENABLE_QQ_MUSIC === "true",
-        enableMigu: process.env.ENABLE_MIGU_MUSIC !== "false",
     }));
 });
 app.get("/api/debug/ai-config", (req, res) => {
