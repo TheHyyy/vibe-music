@@ -15,10 +15,10 @@ COPY server/package.json server/pnpm-lock.yaml ./server/
 
 # 安装依赖
 WORKDIR /app/web
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 WORKDIR /app/server
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 # 复制源代码
 COPY web/ ./web/
@@ -46,7 +46,7 @@ COPY --from=builder /app/server/pnpm-lock.yaml /app/server/pnpm-lock.yaml
 
 # 安装生产依赖
 WORKDIR /app/server
-RUN pnpm install --prod --frozen-lockfile
+RUN pnpm install --prod
 
 # 复制构建产物
 COPY --from=builder /app/server/dist ./dist
