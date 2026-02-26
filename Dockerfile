@@ -42,12 +42,16 @@ COPY --from=builder /app/server/pnpm-lock.yaml /app/server/pnpm-lock.yaml
 WORKDIR /app/server
 RUN pnpm install --prod
 
-# 复制构建产物
+# 复制后端构建产物
 COPY --from=builder /app/server/dist ./dist
-COPY --from=builder /app/server/client_dist ./client_dist
+
+# 复制前端构建产物到 /app/client_dist（后端代码查找的路径）
+# 后端代码: path.resolve(__dirname, "../../client_dist")
+# __dirname = /app/server/dist, 所以 ../../client_dist = /app/client_dist
+COPY --from=builder /app/server/client_dist /app/client_dist
 
 # 验证文件存在
-RUN ls -la ./client_dist/
+RUN ls -la /app/client_dist/
 
 # 暴露端口
 EXPOSE 3000
