@@ -1,9 +1,13 @@
 import { http } from "@/api/http";
 import type { ApiResult, Song } from "@/types/api";
 
-export async function searchSongs(q: string, page = 1): Promise<ApiResult<Song[]>> {
+export async function searchSongs(
+  q: string,
+  page = 1,
+  source = "all",
+): Promise<ApiResult<Song[]>> {
   const res = await http.get<ApiResult<Song[]>>("/api/songs/search", {
-    params: { q, page },
+    params: { q, page, source },
   });
   return res.data;
 }

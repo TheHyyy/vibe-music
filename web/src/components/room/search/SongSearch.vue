@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { Search, Plus, Loader2, Disc3, Music2, Heart } from "lucide-vue-next";
 import { searchSongs, getSystemConfig } from "@/api/songs";
@@ -24,17 +24,43 @@ const searching = ref(false);
 const results = ref<Song[]>([]);
 const hasSearched = ref(false);
 const enableQQ = ref(false);
+const enableKugou = ref(false);
 const currentPage = ref(1);
 const hasMore = ref(true);
+
+// 平台选择：all | netease | kugou | qq
+const selectedSource = ref<string>("all");
+
+// 可用的平台列表
+const availableSources = ref<{ key: string; label: string }[]>([
+  { key: "all", label: "全部" },
+  { key: "netease", label: "网易云" },
+]);
 
 onMounted(async () => {
   try {
     const res = await getSystemConfig();
     if (res.ok) {
       enableQQ.value = res.data.enableQQ;
+      enableKugou.value = res.data.enableKugou;
+      
+      // 根据配置添加可选平台
+      if (enableKugou.value) {
+        availableSources.value.push({ key: "kugou", label: "酷狗" });
+      }
+      if (enableQQ.value) {
+        availableSources.value.push({ key: "qq", label: "QQ音乐" });
+      }
     }
   } catch (e) {
     console.error("Failed to load config", e);
+  }
+});
+
+// 平台切换时重新搜索
+watch(selectedSource, () => {
+  if (hasSearched.value && q.value.trim()) {
+    doSearch();
   }
 });
 
@@ -53,7 +79,7 @@ async function doSearch(loadMore = false) {
   searching.value = true;
   hasSearched.value = true;
   try {
-    const res = await searchSongs(q.value.trim(), currentPage.value);
+    const res = await searchSongs(q.value.trim(), currentPage.value, selectedSource.value);
     if (!res.ok) throw new Error((res as any).error.message);
 
     if (res.data.length < 10) {
@@ -141,6 +167,32 @@ async function addSong(song: Song) {
         >
           搜索
         </Button>
+      </div>
+
+      <!-- Platform Selector -->
+      <div class="flex items-center gap-1 mt-2 shrink-0 flex-wrap">
+        <label
+          v-for="source in availableSources"
+          :key="source.key"
+          class="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs cursor-pointer transition-all"
+          :class="
+            selectedSource === source.key
+              ? 'bg-white/20 text-white'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+          "
+        >
+          <input
+            type="radio"
+            :value="source.key"
+            v-model="selectedSource"
+            class="sr-only"
+          />
+          <span
+            class="w-2 h-2 rounded-full border border-current transition-all"
+            :class="{ 'bg-current': selectedSource === source.key }"
+          ></span>
+          {{ source.label }}
+        </label>
       </div>
 
       <!-- Results List -->

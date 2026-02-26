@@ -37,17 +37,60 @@ function providers(): MusicProvider[] {
   return _providers;
 }
 
-export async function searchMusic(query: string): Promise<Song[]> {
+export async function searchMusic(query: string, page = 1, source = "all"): Promise<Song[]> {
   const results: Song[] = [];
-  for (const p of providers()) {
+  const allProviders = providers();
+  
+  // 过滤要使用的 provider
+  const targetProviders = source === "all" 
+    ? allProviders 
+    : allProviders.filter(p => p.name.toLowerCase() === source.toLowerCase());
+
+  for (const p of targetProviders) {
     try {
-      const songs = await p.search(query);
+      const songs = await p.search(query, page);
       results.push(...songs);
     } catch (e) {
       console.error(`[${p.name}] search error:`, e);
     }
   }
+  
+  // 如果是全部平台，交替排列结果
+  if (source === "all" && targetProviders.length > 1) {
+    return interleaveResults(results, targetProviders);
+  }
+  
   return results;
+}
+
+// 交替排列不同平台的结果
+function interleaveResults(songs: Song[], providers: MusicProvider[]): Song[] {
+  const result: Song[] = [];
+  const byProvider = new Map<string, Song[]>();
+  
+  // 按平台分组
+  for (const song of songs) {
+    const key = song.source.toLowerCase();
+    if (!byProvider.has(key)) byProvider.set(key, []);
+    byProvider.get(key)!.push(song);
+  }
+  
+  // 交替取出
+  const providerOrder = providers.map(p => p.name.toLowerCase());
+  let hasMore = true;
+  
+  while (hasMore) {
+    hasMore = false;
+    for (const providerName of providerOrder) {
+      const list = byProvider.get(providerName);
+      if (list && list.length > 0) {
+        result.push(list.shift()!);
+        hasMore = true;
+      }
+    }
+  }
+  
+  return result;
 }
 
 export async function getPlayUrl(id: string): Promise<string | null> {

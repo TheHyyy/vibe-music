@@ -598,13 +598,15 @@ app.post("/api/reports/daily/push-all", async (req, res) => {
 app.get("/api/songs/search", async (req, res) => {
   const q = String(req.query.q || "").trim();
   const page = Number(req.query.page) || 1;
+  const source = String(req.query.source || "all").toLowerCase();
+  
   if (!q) {
     res.json(ok([]));
     return;
   }
 
   try {
-    const items = await searchMusic(q, page);
+    const items = await searchMusic(q, page, source);
     res.json(ok(items));
   } catch (e) {
     res.status(500).json(err((e as Error).message));
@@ -656,6 +658,7 @@ app.get("/api/config", (req, res) => {
   res.json(
     ok({
       enableQQ: process.env.ENABLE_QQ_MUSIC === "true",
+      enableKugou: process.env.ENABLE_KUGOU_MUSIC === "true",
     }),
   );
 });
