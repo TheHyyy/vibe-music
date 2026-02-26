@@ -41,15 +41,15 @@ export class MusicfreeProvider implements MusicProvider {
       const realId = id.replace("kugou:", "");
       
       // 从缓存中获取歌曲信息
-      let songInfo = songCache.get(realId);
+      const songInfo = songCache.get(realId);
       
       if (!songInfo) {
-        console.log("[Musicfree] song not in cache, this shouldn't happen for normal playback");
+        console.log("[Musicfree] song not in cache, cannot get play URL");
         return null;
       }
       
       // 优先尝试 MP3 格式（兼容性最好）
-      // standard = 128kbps MP3, high = 320kbps MP3, super = 320kbps MP3 或 FLAC
+      // standard = 128kbps MP3, high = 320kbps MP3, super = FLAC
       const qualities = ['standard', 'high', 'super'];
       
       for (const quality of qualities) {
@@ -60,23 +60,21 @@ export class MusicfreeProvider implements MusicProvider {
             const url = mediaSource.url;
             const ext = url.split('.').pop()?.toLowerCase();
             
-            // 检查是否是 MP3（通过扩展名或 Content-Type）
-            const isMP3 = ext === 'mp3' || mediaSource.type?.includes?.audio/');
-            
-            if (isMP3) {
+            // 优先返回 MP3 格式（最佳兼容性）
+            if (ext === 'mp3') {
               console.log(`[Musicfree] got MP3 URL (${quality})`);
               return url;
             }
             
-            // 如果不是 MP3，记录日志并继续尝试
-            }
-          console.log(`[Musicfree] got ${ext} URL (${quality}), may not work in some browsers`);
-        } catch (e) {
+            // 非 MP3 格式，记录日志
+            console.log(`[Musicfree] got ${ext} URL (${quality}), may not work in some browsers`);
+          }
+        } catch (e: any) {
           console.log(`[Musicfree] quality ${quality} failed:`, e.message);
         }
       }
       
-      // 如果所有音质都失败，返回 null
+      // 如果所有音质都失败，抛出错误
       throw new Error("酷狗暂无此歌曲资源，请尝试其他平台");
     } catch (e) {
       console.error("[Musicfree] getPlayUrl error:", e);
