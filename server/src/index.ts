@@ -943,7 +943,7 @@ function broadcastSystemMessage(roomId: string, content: string) {
   io.to(roomId).emit("chat:message", message);
 }
 
-const port = Number(process.env.PORT || 3001);
+const port = Number(process.env.PORT || 3000);
 httpServer.listen(port, () => {
   process.stdout.write(`server listening on http://localhost:${port}\n`);
 });

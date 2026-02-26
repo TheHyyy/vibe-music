@@ -44,7 +44,7 @@ COPY --from=builder /app/server/dist ./dist
 COPY --from=builder /app/server/client_dist ./client_dist
 
 # 暴露端口
-EXPOSE 3001
+EXPOSE 3000
 
 # 启动命令
 CMD ["node", "dist/index.js"]
