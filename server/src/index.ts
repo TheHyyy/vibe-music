@@ -613,7 +613,10 @@ app.get("/api/songs/search", async (req, res) => {
 
 app.get("/api/songs/url", async (req, res) => {
   const id = String(req.query.id || "").trim();
+  console.log(`[Songs] getPlayUrl request, id: "${id}"`);
+  
   if (!id) {
+    console.log("[Songs] getPlayUrl rejected: missing id");
     res.status(400).json(err("Missing id"));
     return;
   }
@@ -626,13 +629,17 @@ app.get("/api/songs/url", async (req, res) => {
     }
     res.json(ok({ url }));
   } catch (e) {
+    console.error("[Songs] getPlayUrl error:", e);
     res.status(500).json(err((e as Error).message));
   }
 });
 
 app.get("/api/songs/lyric", async (req, res) => {
   const id = String(req.query.id || "").trim();
+  console.log(`[Songs] getLyric request, id: "${id}"`);
+  
   if (!id) {
+    console.log("[Songs] getLyric rejected: missing id");
     res.status(400).json(err("Missing id"));
     return;
   }

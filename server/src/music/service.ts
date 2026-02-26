@@ -51,8 +51,8 @@ export async function searchMusic(query: string): Promise<Song[]> {
 }
 
 export async function getPlayUrl(id: string): Promise<string | null> {
-  const prefix = id.split(":")[0];
-  const provider = providers().find((p) => p.name === prefix);
+  const prefix = id.split(":")[0]?.toUpperCase();
+  const provider = providers().find((p) => p.name.toUpperCase() === prefix);
   if (!provider) {
     throw new Error(`Unknown provider: ${prefix}`);
   }
@@ -60,15 +60,26 @@ export async function getPlayUrl(id: string): Promise<string | null> {
 }
 
 export async function getLyric(id: string): Promise<string | null> {
-  const prefix = id.split(":")[0];
-  const provider = providers().find((p) => p.name === prefix);
+  const prefix = id.split(":")[0]?.toUpperCase();
+  const provider = providers().find((p) => p.name.toUpperCase() === prefix);
   if (!provider) {
     throw new Error(`Unknown provider: ${prefix}`);
   }
   return provider.getLyric(id);
 }
 
-export async function getHotRecommendation(): Promise<Song[]> {
-  // 暂时返回空，热门推荐功能待实现
-  return [];
+export async function getHotRecommendation(): Promise<Song | null> {
+  try {
+    // 使用网易云的热歌榜
+    const provider = new NeteaseProvider();
+    const songs = await provider.getHotSongs();
+    if (songs.length > 0) {
+      // 随机选一首
+      return songs[Math.floor(Math.random() * songs.length)];
+    }
+    return null;
+  } catch (e) {
+    console.error("[Music] getHotRecommendation error:", e);
+    return null;
+  }
 }
