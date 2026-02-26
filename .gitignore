@@ -29,3 +29,6 @@ pnpm-debug.log*
 *.tmp
 *.temp
 temp/
+
+# Music cache
+kugou-cache.json

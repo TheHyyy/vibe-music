@@ -19,7 +19,6 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "koishi-plugin-music-downloadlink-api": "^1.5.1",
-    "musicfree-api": "^1.0.0",
     "nanoid": "^5.1.5",
     "NeteaseCloudMusicApi": "^4.28.1",
     "node-jsencrypt": "^1.0.0",

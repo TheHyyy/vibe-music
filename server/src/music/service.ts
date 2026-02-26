@@ -2,7 +2,7 @@ import type { Song } from "../types.js";
 import type { MusicProvider } from "./types.js";
 import { NeteaseProvider } from "./netease.js";
 import { QQProvider } from "./qq.js";
-import { MusicfreeProvider } from "./musicfree.js";
+import { QQRain120Provider } from "./qq-rain120.js";
 import { MockProvider } from "./mock.js";
 
 function isEnabledEnvTrue(key: string): boolean {
@@ -12,18 +12,25 @@ function isEnabledEnvTrue(key: string): boolean {
 
 function buildProviders(): MusicProvider[] {
   const providerMode = (process.env.PROVIDER_MODE || "").toUpperCase();
-  
+
   if (providerMode === "MOCK") return [new MockProvider()];
 
   // 在这里读取环境变量，而不是在模块顶层
   const enableQQ = isEnabledEnvTrue("ENABLE_QQ_MUSIC");
-  const enableKugou = isEnabledEnvTrue("ENABLE_KUGOU_MUSIC");
 
-  console.log("[Music] Building providers, KUGOU:", enableKugou, "QQ:", enableQQ);
+  console.log("[Music] Building providers, QQ:", enableQQ);
 
   const list: MusicProvider[] = [new NeteaseProvider()];
-  if (enableKugou) list.push(new MusicfreeProvider());
-  if (enableQQ) list.push(new QQProvider());
+  if (enableQQ) {
+    // 优先使用 Rain120 的 API（不需要登录）
+    const qqApiBase = process.env.QQ_MUSIC_API_BASE;
+    if (qqApiBase) {
+      list.push(new QQRain120Provider());
+    } else {
+      // 降级到原来的 QQProvider（需要 Cookie）
+      list.push(new QQProvider());
+    }
+  }
   return list;
 }
 

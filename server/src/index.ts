@@ -658,7 +658,6 @@ app.get("/api/config", (req, res) => {
   res.json(
     ok({
       enableQQ: process.env.ENABLE_QQ_MUSIC === "true",
-      enableKugou: process.env.ENABLE_KUGOU_MUSIC === "true",
     }),
   );
 });

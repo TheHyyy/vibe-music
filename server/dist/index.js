@@ -520,12 +520,13 @@ app.post("/api/reports/daily/push-all", async (req, res) => {
 app.get("/api/songs/search", async (req, res) => {
     const q = String(req.query.q || "").trim();
     const page = Number(req.query.page) || 1;
+    const source = String(req.query.source || "all").toLowerCase();
     if (!q) {
         res.json(ok([]));
         return;
     }
     try {
-        const items = await searchMusic(q, page);
+        const items = await searchMusic(q, page, source);
         res.json(ok(items));
     }
     catch (e) {
@@ -534,7 +535,9 @@ app.get("/api/songs/search", async (req, res) => {
 });
 app.get("/api/songs/url", async (req, res) => {
     const id = String(req.query.id || "").trim();
+    console.log(`[Songs] getPlayUrl request, id: "${id}"`);
     if (!id) {
+        console.log("[Songs] getPlayUrl rejected: missing id");
         res.status(400).json(err("Missing id"));
         return;
     }
@@ -547,12 +550,15 @@ app.get("/api/songs/url", async (req, res) => {
         res.json(ok({ url }));
     }
     catch (e) {
+        console.error("[Songs] getPlayUrl error:", e);
         res.status(500).json(err(e.message));
     }
 });
 app.get("/api/songs/lyric", async (req, res) => {
     const id = String(req.query.id || "").trim();
+    console.log(`[Songs] getLyric request, id: "${id}"`);
     if (!id) {
+        console.log("[Songs] getLyric rejected: missing id");
         res.status(400).json(err("Missing id"));
         return;
     }
@@ -807,7 +813,7 @@ function broadcastSystemMessage(roomId, content) {
     };
     io.to(roomId).emit("chat:message", message);
 }
-const port = Number(process.env.PORT || 3001);
+const port = Number(process.env.PORT || 3000);
 httpServer.listen(port, () => {
     process.stdout.write(`server listening on http://localhost:${port}\n`);
 });
