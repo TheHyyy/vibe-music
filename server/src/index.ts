@@ -469,15 +469,28 @@ app.post("/api/rooms/:roomId/ended", async (req, res) => {
     let nowPlaying = nextSong(roomId);
 
     if (!nowPlaying) {
+      // 🔒 检查锁，防止竞态条件
+      if (rec.autoplayLock) {
+        console.log("[Ended] Autoplay already in progress, skipping...");
+        res.json(ok({ nowPlaying: rec.nowPlaying }));
+        return;
+      }
+
       console.log("[Ended] Queue empty, fetching hot song...");
-      const hotSong = await getHotRecommendation();
-      if (hotSong) {
-        console.log("[Ended] Found hot song:", hotSong.title);
-        // Use the virtual user for attribution
-        const item = addQueueItem(roomId, AUTOPLAY_USER, hotSong);
-        nowPlaying = item;
-      } else {
-        console.warn("[Ended] Failed to find hot song");
+      rec.autoplayLock = true; // 加锁
+
+      try {
+        const hotSong = await getHotRecommendation();
+        if (hotSong) {
+          console.log("[Ended] Found hot song:", hotSong.title);
+          // Use the virtual user for attribution
+          const item = addQueueItem(roomId, AUTOPLAY_USER, hotSong);
+          nowPlaying = item;
+        } else {
+          console.warn("[Ended] Failed to find hot song");
+        }
+      } finally {
+        rec.autoplayLock = false; // 解锁
       }
     }
 
@@ -787,10 +800,12 @@ io.on("connection", (socket) => {
         }
 
         // Check if room is empty and auto-play
-        if (rec && !rec.nowPlaying && rec.queue.length === 0) {
+        if (rec && !rec.nowPlaying && rec.queue.length === 0 && !rec.autoplayLock) {
           console.log(
             `[Join] Room ${body.roomId} is empty, triggering auto-play...`,
           );
+          rec.autoplayLock = true; // 加锁
+
           getHotRecommendation()
             .then((hotSong) => {
               // Re-check state inside async callback
@@ -805,7 +820,13 @@ io.on("connection", (socket) => {
                 broadcastRoomState(body.roomId);
               }
             })
-            .catch((e) => console.error("[Join] Auto-play failed:", e));
+            .catch((e) => console.error("[Join] Auto-play failed:", e))
+            .finally(() => {
+              const currentRec = rooms.get(body.roomId);
+              if (currentRec) {
+                currentRec.autoplayLock = false; // 解锁
+              }
+            });
         }
       } catch (e) {
         ack?.(err((e as Error).message));

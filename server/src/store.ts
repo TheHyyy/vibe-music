@@ -18,6 +18,7 @@ export interface RoomRecord {
   playback: PlaybackState;
   blacklist: Set<string>;
   votes: Map<string, "UP" | "DOWN" | "SKIP">;
+  autoplayLock?: boolean; // 防止同时触发 auto-play
 }
 
 export const rooms = new Map<string, RoomRecord>();
