@@ -36,12 +36,30 @@ export class QQProvider {
     async getPlayUrl(id) {
         try {
             const realId = id.replace("qq:", "");
+            // 尝试获取播放链接
             const res = await qq.api("song/urls", { id: realId });
             // qq-music-api 返回结构可能较复杂，通常是一个对象 map
-            return res?.[realId] || null;
+            const url = res?.[realId];
+            if (!url) {
+                // 如果没有获取到 URL，可能需要登录或 VIP
+                console.error(`[QQ] No URL for ${realId}, may require login or VIP`);
+                throw new Error("QQ音乐需要登录或VIP才能播放此歌曲。\n\n" +
+                    "请按以下步骤获取Cookie：\n" +
+                    "1. 在浏览器中打开 https://y.qq.com 并登录\n" +
+                    "2. 按F12打开开发者工具 -> Network标签页\n" +
+                    "3. 刷新页面，点击任意请求\n" +
+                    "4. 复制Request Headers中的cookie值\n" +
+                    "5. 在server/.env中设置 QQ_COOKIE=你的cookie\n" +
+                    "6. 重启服务器");
+            }
+            return url;
         }
         catch (e) {
-            console.error("QQ getPlayUrl error:", e);
+            console.error("[QQ] getPlayUrl error:", e);
+            // 如果是 qq-music-api 的错误，提供更友好的提示
+            if (e?.message?.includes('登录')) {
+                throw new Error("QQ音乐需要登录，请在 .env 中配置有效的 QQ_COOKIE");
+            }
             throw e; // Rethrow to let the caller handle it (and send to client)
         }
     }
