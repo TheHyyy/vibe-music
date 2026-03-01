@@ -3,6 +3,9 @@ import type { MusicProvider } from "./types.js";
 import { NeteaseProvider } from "./netease.js";
 import { QQProvider } from "./qq.js";
 import { QQRain120Provider } from "./qq-rain120.js";
+import { MetingQQProvider } from "./meting-qq.js";
+import { QQFreeProvider } from "./qq-free.js";
+import { QQThirdProvider } from "./qq-third.js";
 import { MockProvider } from "./mock.js";
 
 function isEnabledEnvTrue(key: string): boolean {
@@ -16,19 +19,37 @@ function buildProviders(): MusicProvider[] {
   if (providerMode === "MOCK") return [new MockProvider()];
 
   // 在这里读取环境变量，而不是在模块顶层
-  const enableQQ = isEnabledEnvTrue("ENABLE_QQ_MUSIC");
+  // ENABLE_QQ_MUSIC 默认为 true（除非明确设置为 false）
+  const enableQQ = process.env.ENABLE_QQ_MUSIC !== "false";
+  const qqProvider = (process.env.QQ_MUSIC_PROVIDER || "qq-music-api").toLowerCase();
 
-  console.log("[Music] Building providers, QQ:", enableQQ);
+  console.log("[Music] Building providers, QQ:", enableQQ, "Provider:", qqProvider);
 
   const list: MusicProvider[] = [new NeteaseProvider()];
   if (enableQQ) {
-    // 优先使用 Rain120 的 API（不需要登录）
-    const qqApiBase = process.env.QQ_MUSIC_API_BASE;
-    if (qqApiBase) {
-      list.push(new QQRain120Provider());
-    } else {
-      // 降级到原来的 QQProvider（需要 Cookie）
-      list.push(new QQProvider());
+    // 根据 QQ_MUSIC_PROVIDER 环境变量选择 QQ 音乐实现
+    switch (qqProvider) {
+      case "meting":
+        // 使用 Meting（推荐，支持多种功能）
+        list.push(new MetingQQProvider());
+        break;
+      case "rain120":
+        // 使用 Rain120 API（不需要登录）
+        list.push(new QQRain120Provider());
+        break;
+      case "free":
+        // 使用免费API（不需要登录，但部分歌曲无法播放）
+        list.push(new QQFreeProvider());
+        break;
+      case "third":
+        // 使用第三方API（推荐，支持多种音源）
+        list.push(new QQThirdProvider());
+        break;
+      case "qq-music-api":
+      default:
+        // 使用 qq-music-api（需要 Cookie）
+        list.push(new QQProvider());
+        break;
     }
   }
   return list;
